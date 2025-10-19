@@ -35,8 +35,14 @@ fun getAlertaData(temperatura: Double, umbralCritico: Double): Pair<Color, Strin
 
 // --- COMPOSABLE DEL DISEÑO ---
 
+// --- COMPOSABLE DEL DISEÑO (CON CAMBIOS) ---
+
 @Composable
 fun PrincipalScreen(navController: NavController) {
+
+    // --- Definimos los colores que usaremos ---
+    val fondoClaro = Color(0xFF87CEEB) // El azul claro que estamos trabajando
+    val colorLetraAzul = Color(0xFF0D47A1) // Un azul oscuro para que se lea bien
 
     // --- LÓGICA DE DATASTORE (Lectura del Umbral Crítico) ---
     val context = LocalContext.current
@@ -60,51 +66,81 @@ fun PrincipalScreen(navController: NavController) {
             notificationService.showNotification(temperaturaActual)
         }
     }
+
     // Estructura principal de la pantalla, usando Scaffold
     Scaffold(
-        bottomBar = {
-            // Fila para los botones inferiores
-            Row(
+        // El contenedor de la barra inferior ahora no tiene contenido directo
+        // para que podamos controlar el fondo y la posición.
+        content = { paddingValues ->
+            // Contenido Principal del Tablero de Control de Colores
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly
+                    .fillMaxSize()
+                    // Usamos el padding que nos da el Scaffold
+                    .padding(paddingValues)
+                    .background(fondoColor), // Fondo dinámico según la alerta
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
-                // Botón Historial, usando ElevatedButton
-                ElevatedButton(onClick = { navController.navigate(Screen.Historial.route) }) {
-                    Text("Historial de temperatura")
-                }
-                // Botón Configuración, usando ElevatedButton
-                ElevatedButton(onClick = { navController.navigate(Screen.Configuracion.route) }) {
-                    Text("Configuración")
+                // Spacer para empujar el contenido hacia arriba
+                Spacer(modifier = Modifier.weight(1f))
+
+                // Temperatura actual (Componente Text)
+                Text(
+                    text = "${temperaturaActual.toInt()}° C",
+                    fontSize = 120.sp,
+                    color = Color.Black
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                // Mensaje de alerta (Componente Text)
+                Text(
+                    text = mensajeAlerta,
+                    fontSize = 24.sp,
+                    color = Color.Black
+                )
+
+                // Spacer para empujar los botones hacia abajo, pero no hasta el borde
+                Spacer(modifier = Modifier.weight(1f))
+
+                // --- CAMBIO: Fila de botones ahora dentro del Column principal ---
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        // Agregamos más padding en la parte inferior para "subirlos"
+                        .padding(bottom = 32.dp, start = 16.dp, end = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    // --- CAMBIO: Estilo de los botones ---
+                    val buttonColors = ButtonDefaults.elevatedButtonColors(
+                        // El fondo del botón será blanco para que resalte
+                        containerColor = Color.White,
+                        // El color de las letras será el azul que definimos
+                        contentColor = colorLetraAzul
+                    )
+
+                    // Botón Historial, usando ElevatedButton
+                    ElevatedButton(
+                        onClick = { navController.navigate(Screen.Historial.route) },
+                        colors = buttonColors // Aplicamos los nuevos colores
+                    ) {
+                        Text("Historial de temperatura")
+                    }
+                    // Botón Configuración, usando ElevatedButton
+                    ElevatedButton(
+                        onClick = { navController.navigate(Screen.Configuracion.route) },
+                        colors = buttonColors // Aplicamos los nuevos colores
+                    ) {
+                        Text("Configuración")
+                    }
                 }
             }
+        },
+        // --- CAMBIO: El fondo de toda la barra inferior ahora es transparente ---
+        // para que se vea el color dinámico de la pantalla principal.
+        bottomBar = {
+            Surface(color = Color.Transparent) {}
         }
-    ) { paddingValues ->
-        // Contenido Principal del Tablero de Control de Colores
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .background(fondoColor), // Fondo dinámico según la alerta
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            // Temperatura actual (Componente Text)
-            Text(
-                text = "${temperaturaActual.toInt()}° C",
-                fontSize = 120.sp,
-                color = Color.Black
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            // Mensaje de alerta (Componente Text)
-            Text(
-                text = mensajeAlerta,
-                fontSize = 24.sp,
-                color = Color.Black
-            )
-        }
-    }
+    )
 }
 
 @Preview(showBackground = true)

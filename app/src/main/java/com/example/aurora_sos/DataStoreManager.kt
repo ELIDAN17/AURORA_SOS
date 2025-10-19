@@ -1,7 +1,7 @@
 // Archivo: DataStoreManager.kt
 
 package com.example.aurora_sos
-
+//https://aurorasos-default-rtdb.firebaseio.com/
 import android.content.Context
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
