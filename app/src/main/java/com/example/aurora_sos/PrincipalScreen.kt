@@ -22,27 +22,19 @@ fun getAlertaData(temperatura: Double, umbralCritico: Double): Pair<Color, Strin
     val colorVerde = Color(0xFF8BC34A)
 
     return when {
-        // 1. RIESGO MÁXIMO (ROJO): Si la temperatura es menor o igual al umbral crítico
         temperatura <= umbralCritico -> Pair(colorRojo, "Alerta: Riesgo de Helada")
-
-        // 2. RIESGO MODERADO (NARANJA): Si está por encima del umbral pero aún baja (ej. hasta 10°C)
         temperatura <= 10.0 -> Pair(colorNaranja, "Alerta: Riesgo moderado")
-
-        // 3. ESTABLE (VERDE): Temperatura segura
         else -> Pair(colorVerde, "Alerta: Estable")
     }
 }
 
-// --- COMPOSABLE DEL DISEÑO ---
-
-// --- COMPOSABLE DEL DISEÑO (CON CAMBIOS) ---
 
 @Composable
 fun PrincipalScreen(navController: NavController) {
 
     // --- Definimos los colores que usaremos ---
-    val fondoClaro = Color(0xFF87CEEB) // El azul claro que estamos trabajando
-    val colorLetraAzul = Color(0xFF0D47A1) // Un azul oscuro para que se lea bien
+    val fondoClaro = Color(0xFF87CEEB) // El azul claro fondo
+    val colorLetraAzul = Color(0xFF0D47A1) // Un azul oscuro para que se lea bien las letras
 
     // --- LÓGICA DE DATASTORE (Lectura del Umbral Crítico) ---
     val context = LocalContext.current
@@ -55,8 +47,8 @@ fun PrincipalScreen(navController: NavController) {
     val umbralCritico = configData.first
     val notificacionesActivas = configData.second
     // --- SIMULACIÓN DE DATOS DEL ESP32 ---
-    // En un proyecto real, este valor se actualizaría al recibir datos del servidor
-    val temperaturaActual by remember { mutableStateOf(15.0) } // Ejemplo: 19°C (Estable)
+    // Este valor se actualizaría al recibir datos del servidor
+    val temperaturaActual by remember { mutableStateOf(18.0) } // Ejemplo: 19°C (Estable)
 
     // Obtiene el color y el mensaje de alerta usando el umbral del usuario
     val (fondoColor, mensajeAlerta) = getAlertaData(temperaturaActual, umbralCritico)
@@ -69,14 +61,11 @@ fun PrincipalScreen(navController: NavController) {
 
     // Estructura principal de la pantalla, usando Scaffold
     Scaffold(
-        // El contenedor de la barra inferior ahora no tiene contenido directo
-        // para que podamos controlar el fondo y la posición.
         content = { paddingValues ->
             // Contenido Principal del Tablero de Control de Colores
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    // Usamos el padding que nos da el Scaffold
                     .padding(paddingValues)
                     .background(fondoColor), // Fondo dinámico según la alerta
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -99,43 +88,39 @@ fun PrincipalScreen(navController: NavController) {
                     color = Color.Black
                 )
 
-                // Spacer para empujar los botones hacia abajo, pero no hasta el borde
+                // Spacer para empujar los botones
                 Spacer(modifier = Modifier.weight(1f))
 
-                // --- CAMBIO: Fila de botones ahora dentro del Column principal ---
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        // Agregamos más padding en la parte inferior para "subirlos"
-                        .padding(bottom = 32.dp, start = 16.dp, end = 16.dp),
+                        .padding(bottom = 32.dp, start = 16.dp, end = 16.dp), //separador
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
-                    // --- CAMBIO: Estilo de los botones ---
                     val buttonColors = ButtonDefaults.elevatedButtonColors(
-                        // El fondo del botón será blanco para que resalte
+                        // El fondo del botón será blanco
                         containerColor = Color.White,
-                        // El color de las letras será el azul que definimos
+                        // El color de las letras
                         contentColor = colorLetraAzul
                     )
 
-                    // Botón Historial, usando ElevatedButton
+                    // Botón Historial
                     ElevatedButton(
                         onClick = { navController.navigate(Screen.Historial.route) },
-                        colors = buttonColors // Aplicamos los nuevos colores
+                        colors = buttonColors
                     ) {
                         Text("Historial de temperatura")
                     }
-                    // Botón Configuración, usando ElevatedButton
+                    // Botón Configuración
                     ElevatedButton(
                         onClick = { navController.navigate(Screen.Configuracion.route) },
-                        colors = buttonColors // Aplicamos los nuevos colores
+                        colors = buttonColors
                     ) {
                         Text("Configuración")
                     }
                 }
             }
         },
-        // --- CAMBIO: El fondo de toda la barra inferior ahora es transparente ---
         // para que se vea el color dinámico de la pantalla principal.
         bottomBar = {
             Surface(color = Color.Transparent) {}

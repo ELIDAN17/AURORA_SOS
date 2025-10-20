@@ -1,7 +1,6 @@
 // Archivo: DataStoreManager.kt
 
 package com.example.aurora_sos
-//https://aurorasos-default-rtdb.firebaseio.com/
 import android.content.Context
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
@@ -9,7 +8,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 // Extensión para acceder al DataStore de forma singleton
-// El nombre del archivo de preferencias será "configuracion_aurora"
 val Context.dataStore by preferencesDataStore(name = "configuracion_aurora")
 
 class DataStoreManager(context: Context) {

@@ -13,7 +13,7 @@ import kotlinx.coroutines.delay
 
 @Composable
 fun SplashScreen(navController: NavController) {
-    // Definimos el color que quieres usar
+    // Definimos el color de fondo
     val fondoClaro = Color(0xFF87CEEB)
 
     // 1. Lógica del Temporizador y Navegación
@@ -28,7 +28,6 @@ fun SplashScreen(navController: NavController) {
     // 2. Diseño de la Interfaz de Usuario
     Surface(
         modifier = Modifier.fillMaxSize(),
-        // Usamos tu color personalizado en lugar del color del tema
         color = fondoClaro
     ) {
         Column(

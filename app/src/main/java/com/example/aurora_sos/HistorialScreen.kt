@@ -46,11 +46,9 @@ fun HistorialScreen(navController: NavController) {
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // --- CAMBIO: Contenedor del Gráfico (Card) con más peso ---
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    // Le damos un peso mayor para que ocupe más espacio vertical
                     .weight(2.5f),
                 shape = RoundedCornerShape(8.dp),
                 colors = CardDefaults.cardColors(containerColor = colorTarjeta),
@@ -68,8 +66,6 @@ fun HistorialScreen(navController: NavController) {
                 }
             }
 
-            // --- CAMBIO: Spacer con menos peso para los botones ---
-            // Esto le da menos espacio al área de botones, haciendo que el gráfico se expanda
             Spacer(modifier = Modifier.weight(0.1f))
 
             // --- Botones de Rango de Tiempo ---

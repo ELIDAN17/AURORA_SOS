@@ -41,7 +41,7 @@ fun ConfiguracionScreen(navController: NavController) {
                 ) == PackageManager.PERMISSION_GRANTED
             )
         } else {
-            mutableStateOf(true) // En versiones antiguas, el permiso se da al instalar
+            mutableStateOf(true)
         }
     }
 
