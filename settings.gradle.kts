@@ -1,12 +1,6 @@
 pluginManagement {
     repositories {
-        google {
-            content {
-                includeGroupByRegex("com\\.android.*")
-                includeGroupByRegex("com\\.google.*")
-                includeGroupByRegex("androidx.*")
-            }
-        }
+        google() // <-- Aquí, para los plugins
         mavenCentral()
         gradlePluginPortal()
     }
@@ -14,11 +8,9 @@ pluginManagement {
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
-        google()
+        google() // <-- Y aquí, para las librerías (esta es la que da el error)
         mavenCentral()
     }
 }
-
-rootProject.name = "AURORA_SOS"
+rootProject.name = "AURORA_SOS" // O el nombre que tenga tu proyecto
 include(":app")
- 

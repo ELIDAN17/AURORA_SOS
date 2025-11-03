@@ -12,7 +12,7 @@ val Context.dataStore by preferencesDataStore(name = "configuracion_aurora")
 
 class DataStoreManager(context: Context) {
 
-    // 1. Definición de las claves de las preferencias
+    // Definición de las claves de las preferencias
     private object PreferencesKeys {
         val UMBRAL_HELADA = doublePreferencesKey("umbral_helada")
         val NOTIFICACIONES_ACTIVAS = booleanPreferencesKey("notificaciones_activas")
@@ -20,7 +20,7 @@ class DataStoreManager(context: Context) {
 
     private val dataStore = context.dataStore
 
-    // 2. Función para obtener las preferencias (Flow)
+    // Función para obtener las preferencias (Flow)
     // Devuelve un Flow de un Pair<Double, Boolean>
     val preferencesFlow: Flow<Pair<Double, Boolean>> = dataStore.data
         .map { preferences ->
@@ -30,7 +30,7 @@ class DataStoreManager(context: Context) {
             Pair(umbral, notificaciones)
         }
 
-    // 3. Función de Guardado (Suspender Function)
+    // Función de Guardado (Suspender Function)
     suspend fun saveConfiguracion(umbral: Double, notificaciones: Boolean) {
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.UMBRAL_HELADA] = umbral

@@ -1,5 +1,11 @@
 package com.example.aurora_sos
 
+import android.util.Log
+import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.DatabaseError
+import com.google.firebase.database.ValueEventListener
+import com.google.firebase.database.ktx.database
+import com.google.firebase.ktx.Firebase
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -13,10 +19,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
-import kotlinx.coroutines.flow.map // Necesario si no está en DataStoreManager
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 
 fun getAlertaData(temperatura: Double, umbralCritico: Double): Pair<Color, String> {
-    // Definición de colores del prototipo (Rojo, Naranja, Verde)
     val colorRojo = Color.Red
     val colorNaranja = Color(0xFFFF9800)
     val colorVerde = Color(0xFF8BC34A)
@@ -32,26 +43,54 @@ fun getAlertaData(temperatura: Double, umbralCritico: Double): Pair<Color, Strin
 @Composable
 fun PrincipalScreen(navController: NavController) {
 
-    // --- Definimos los colores que usaremos ---
-    val fondoClaro = Color(0xFF87CEEB) // El azul claro fondo
-    val colorLetraAzul = Color(0xFF0D47A1) // Un azul oscuro para que se lea bien las letras
+    //val fondoClaro = Color(0xFF87CEEB)
+    val colorLetraAzul = Color(0xFF0D47A1)
 
-    // --- LÓGICA DE DATASTORE (Lectura del Umbral Crítico) ---
     val context = LocalContext.current
     val dataStoreManager = remember { DataStoreManager(context) }
     val notificationService = remember { NotificationService(context) }
-    // Lee el umbral de helada configurado por el usuario (por defecto: 2.0°C)
+
     val configData by dataStoreManager.preferencesFlow.collectAsState(
         initial = Pair(2.0, true)
     )
     val umbralCritico = configData.first
     val notificacionesActivas = configData.second
-    // --- SIMULACIÓN DE DATOS DEL ESP32 ---
-    // Este valor se actualizaría al recibir datos del servidor
-    val temperaturaActual by remember { mutableStateOf(18.0) } // Ejemplo: 19°C (Estable)
 
-    // Obtiene el color y el mensaje de alerta usando el umbral del usuario
-    val (fondoColor, mensajeAlerta) = getAlertaData(temperaturaActual, umbralCritico)
+    // --- CONEXIÓN A FIREBASE PARA DATOS REALES ---
+    var temperaturaActual by remember { mutableStateOf(15.0) }
+
+    DisposableEffect(Unit) {
+
+        val database = Firebase.database("https://aurorasos-default-rtdb.firebaseio.com/")
+        val tempRef = database.getReference("aurora/temperatura")
+
+        // 3. Creamos el "oyente"
+        val valueEventListener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val temp = snapshot.getValue(Double::class.java)
+                if (temp != null) {
+                    temperaturaActual = temp
+                }
+            }
+            override fun onCancelled(error: DatabaseError) {
+                Log.e("Firebase", "Error al leer la temperatura", error.toException())
+            }
+        }
+
+        tempRef.addValueEventListener(valueEventListener)
+
+        onDispose {
+            tempRef.removeEventListener(valueEventListener)
+        }
+    }
+
+    val (colorObjetivo, mensajeAlerta) = getAlertaData(temperaturaActual, umbralCritico)
+    val fondoColorAnimado by animateColorAsState(
+        targetValue = colorObjetivo,
+        label = "ColorDeFondoAnimado",
+        animationSpec = tween(durationMillis = 1000) // 1 segundo de transición
+    )
+
 
     LaunchedEffect(temperaturaActual, notificacionesActivas) {
         if (temperaturaActual <= umbralCritico && notificacionesActivas) {
@@ -59,59 +98,56 @@ fun PrincipalScreen(navController: NavController) {
         }
     }
 
-    // Estructura principal de la pantalla, usando Scaffold
     Scaffold(
         content = { paddingValues ->
-            // Contenido Principal del Tablero de Control de Colores
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
-                    .background(fondoColor), // Fondo dinámico según la alerta
+                    .background(fondoColorAnimado),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                // Spacer para empujar el contenido hacia arriba
-                Spacer(modifier = Modifier.weight(1f))
+                Spacer(modifier = Modifier.height(340.dp))
+                AnimatedContent(targetState = mensajeAlerta, label = "AnimacionMensajeAlerta",
+                    transitionSpec = {slideInVertically(animationSpec = tween(500))
+                    {it} togetherWith slideOutVertically(animationSpec = tween(500))
+                    {-it}}) { mensaje ->
+                    Text(text = mensaje, fontSize = 24.sp,color=Color.Black)
 
-                // Temperatura actual (Componente Text)
-                Text(
-                    text = "${temperaturaActual.toInt()}° C",
-                    fontSize = 120.sp,
-                    color = Color.Black
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                // Mensaje de alerta (Componente Text)
-                Text(
-                    text = mensajeAlerta,
-                    fontSize = 24.sp,
-                    color = Color.Black
-                )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "${temperaturaActual.toInt()}° C",
+                        fontSize = 120.sp,
+                        color = Color.Black
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = mensajeAlerta,
+                        fontSize = 24.sp,
+                        color = Color.Black
+                    )
 
-                // Spacer para empujar los botones
+                }
+
                 Spacer(modifier = Modifier.weight(1f))
 
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 32.dp, start = 16.dp, end = 16.dp), //separador
+                        .padding(bottom = 32.dp, start = 16.dp, end = 16.dp),
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
                     val buttonColors = ButtonDefaults.elevatedButtonColors(
-                        // El fondo del botón será blanco
                         containerColor = Color.White,
-                        // El color de las letras
                         contentColor = colorLetraAzul
                     )
-
-                    // Botón Historial
                     ElevatedButton(
                         onClick = { navController.navigate(Screen.Historial.route) },
                         colors = buttonColors
                     ) {
                         Text("Historial de temperatura")
                     }
-                    // Botón Configuración
                     ElevatedButton(
                         onClick = { navController.navigate(Screen.Configuracion.route) },
                         colors = buttonColors
@@ -121,7 +157,6 @@ fun PrincipalScreen(navController: NavController) {
                 }
             }
         },
-        // para que se vea el color dinámico de la pantalla principal.
         bottomBar = {
             Surface(color = Color.Transparent) {}
         }

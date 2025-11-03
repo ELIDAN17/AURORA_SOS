@@ -14,7 +14,7 @@ class NotificationService(private val context: Context) {
     private val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
     private val CHANNEL_ID = "aurora_sos_channel"
 
-    // 1. Crear el Canal de Notificación
+    // Crear el Canal de Notificación
     fun createNotificationChannel() {
         // El canal solo se crea en Android 8.0 (API 26) o superior
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -31,7 +31,7 @@ class NotificationService(private val context: Context) {
         }
     }
 
-    // 2. Función para mostrar la notificación
+    // Función para mostrar la notificación
     fun showNotification(temperatura: Double) {
         // Sonido de notificación por defecto del sistema
         val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)

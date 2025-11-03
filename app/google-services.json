@@ -1,0 +1,49 @@
+{
+  "project_info": {
+    "project_number": "98740586273",
+    "firebase_url": "https://aurorasos-default-rtdb.firebaseio.com",
+    "project_id": "aurorasos",
+    "storage_bucket": "aurorasos.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:98740586273:android:736e1b7977ebce4221e060",
+        "android_client_info": {
+          "package_name": "com.example.aurora_sos"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAick4FkCTdnXErxjwO6QNL3xGMXB-M-7g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:98740586273:android:2c9ed9421c5e228d21e060",
+        "android_client_info": {
+          "package_name": "com.example.aurorasos"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAick4FkCTdnXErxjwO6QNL3xGMXB-M-7g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

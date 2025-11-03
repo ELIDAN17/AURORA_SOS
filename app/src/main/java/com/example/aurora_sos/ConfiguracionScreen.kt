@@ -30,8 +30,7 @@ fun ConfiguracionScreen(navController: NavController) {
     val dataStoreManager = remember { DataStoreManager(context) }
     val scope = rememberCoroutineScope()
 
-    // --- LÓGICA DE PERMISOS DE NOTIFICACIÓN ---
-    // 1. Comprobamos si ya tenemos el permiso
+    // Comprobamos si ya tenemos el permiso
     var hasNotificationPermission by remember {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             mutableStateOf(
@@ -45,7 +44,7 @@ fun ConfiguracionScreen(navController: NavController) {
         }
     }
 
-    // 2. Preparamos el lanzador de la solicitud de permiso
+    // Preparamos el lanzador de la solicitud de permiso
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
         onResult = { isGranted ->
@@ -85,7 +84,6 @@ fun ConfiguracionScreen(navController: NavController) {
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-
             Spacer(modifier = Modifier.height(32.dp))
             Text("Umbral de Alerta de Helada", style = MaterialTheme.typography.titleLarge)
             Spacer(modifier = Modifier.height(8.dp))

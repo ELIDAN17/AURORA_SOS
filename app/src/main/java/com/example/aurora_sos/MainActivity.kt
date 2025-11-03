@@ -24,26 +24,26 @@ class MainActivity : ComponentActivity() {
 }
 @Composable
 fun AppNavigation() {
-    // 1. Controlador de Navegación
+    // Controlador de Navegación
     val navController = rememberNavController()
-    // 2. NavHost: Contenedor que gestiona las pantallas según la ruta
+    // NavHost: Contenedor que gestiona las pantallas según la ruta
     NavHost(
         navController = navController,
         startDestination = Screen.Splash.route
     ) {
-        // 1. Pantalla de Presentación (Splash Screen)
+        // Pantalla de Presentación (Splash Screen)
         composable(Screen.Splash.route) {
             SplashScreen(navController)
         }
-        // 2. Módulo Principal (Tablero de Control)
+        // Módulo Principal (Tablero de Control)
         composable(Screen.Principal.route) {
             PrincipalScreen(navController)
         }
-        // 3. Módulo de Configuración
+        // Módulo de Configuración
         composable(Screen.Configuracion.route) {
             ConfiguracionScreen(navController)
         }
-        // 4. Módulo de Historial (Pendiente de implementación)
+        // Módulo de Historial (Pendiente de implementación)
         composable(Screen.Historial.route) {
             HistorialScreen(navController) // Se implementará a continuación
         }
