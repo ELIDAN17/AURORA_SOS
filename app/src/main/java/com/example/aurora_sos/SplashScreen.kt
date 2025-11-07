@@ -9,6 +9,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
 import kotlinx.coroutines.delay
 
 @Composable
@@ -38,12 +39,22 @@ fun SplashScreen(navController: NavController) {
             Text(
                 text = "AURORA SOS",
                 style = MaterialTheme.typography.headlineLarge,
-                modifier = Modifier.padding(bottom = 9.dp)
+                modifier = Modifier.padding(bottom = 9.dp),
+                color = Color.Black
             )
             CircularProgressIndicator(
                 modifier = Modifier.size(32.dp),
                 color = Color.White
             )
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun SplashScreenPreview() {
+    // Agregamos el tema al Preview para que se vea bien
+    com.example.aurora_sos.ui.theme.AURORA_SOSTheme {
+        SplashScreen(navController = rememberNavController())
     }
 }
