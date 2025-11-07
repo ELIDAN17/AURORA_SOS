@@ -267,7 +267,12 @@ fun HistorialScreen(navController: NavController) {
                 try {
                     val dataMapaMutable = mutableMapOf<LocalDate, HistorialEntry>()
                     for (fechaSnapshot in snapshot.children) {
-                        val valueMap = fechaSnapshot.value as? Map<String, Any>
+                        val value = fechaSnapshot.value
+                        val valueMap = if (value is Map<*, *>) {
+                            value as Map<String, Any>
+                        } else {
+                            null
+                        }
                         val fechaKeyStr = fechaSnapshot.key ?: continue
 
                         if (valueMap != null) {
