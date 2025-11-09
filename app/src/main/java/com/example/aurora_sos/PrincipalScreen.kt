@@ -36,10 +36,8 @@ import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
 import io.ktor.client.call.*
 import io.ktor.serialization.kotlinx.json.*
-import kotlinx.serialization.Serializable
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.SerialName
 import java.util.Calendar
 
 // --- Tu función 'getAlertaData' no cambia ---
@@ -126,9 +124,9 @@ fun PrincipalScreen(navController: NavController) {
                 itemCalendar.timeInMillis = item.dt * 1000L // 'dt' está en segundos
                 val diaDelItem = itemCalendar.get(Calendar.DAY_OF_YEAR)
 
-                // Si el item es de "mañana" y su temp_min es más baja...
-                if (diaDelItem == diaDeManana && item.main.temp_min < tempMinimaManana) {
-                    tempMinimaManana = item.main.temp_min
+                // Si el item es de "mañana" y su tempMin es más baja...
+                if (diaDelItem == diaDeManana && item.main.tempMin < tempMinimaManana) {
+                    tempMinimaManana = item.main.tempMin
                 }
             }
             prediccionMinima = tempMinimaManana
@@ -290,34 +288,3 @@ fun PrincipalScreen(navController: NavController) {
 fun PrincipalScreenPreview() {
     PrincipalScreen(navController = rememberNavController())
 }
-@Serializable
-data class WeatherResponse(
-    val main: MainData
-)
-
-@Serializable
-data class MainData(
-    val temp: Double
-)
-
-// --- Clases para la API "forecast" (Pronóstico) ---
-// ¡Usadas por PrincipalScreen Y HistorialScreen!
-@Serializable
-data class ForecastResponse(
-    val list: List<ForecastItem>
-)
-
-@Serializable
-data class ForecastItem(
-    val main: ForecastMainData,
-    val dt: Long
-)
-
-// ¡ESTA ES LA CLASE UNIFICADA!
-// Tiene todos los campos que ambas pantallas necesitan
-@Serializable
-data class ForecastMainData(
-    val temp: Double,
-    val temp_min: Double,
-    val humidity: Double
-)
