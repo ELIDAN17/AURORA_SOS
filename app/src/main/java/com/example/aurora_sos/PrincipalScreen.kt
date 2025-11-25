@@ -180,14 +180,14 @@ fun PrincipalScreen(
                             onDismissRequest = { menuHistorialVisible = false }
                         ) {
                             DropdownMenuItem(
-                                text = { Text("Historial API") },
+                                text = { Text("Pronostico API") },
                                 onClick = { 
                                     navController.navigate(Screen.Historial.route)
                                     menuHistorialVisible = false
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("Historial Sensor") },
+                                text = { Text("Pronostico, Historial Sensor") },
                                 onClick = { 
                                     navController.navigate(Screen.SensorHistorial.route)
                                     menuHistorialVisible = false
