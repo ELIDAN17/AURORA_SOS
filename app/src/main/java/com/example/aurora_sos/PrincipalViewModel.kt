@@ -69,9 +69,9 @@ data class PronosticoHoraApi(
 )
 
 sealed class Alerta {
-    data object Estable : Alerta()
-    data object Moderado : Alerta()
-    data object Helada : Alerta()
+    data object Estable : Alerta() // Verde
+    data object Moderado : Alerta() // Amarillo
+    data object Helada : Alerta()   // Rojo
 }
 
 // --- ViewModel --- //
@@ -105,7 +105,6 @@ class PrincipalViewModel(application: Application) : AndroidViewModel(applicatio
                         state.copy(
                             temperaturaSensor = sensorData.temperatura,
                             datosClimaticosSensor = DatosClimaticosSensor(
-                                // --- CORRECCIÓN AQUÍ ---
                                 humedad = sensorData.humedad.toDouble(),
                                 lluvia = sensorData.lluvia,
                                 puntoRocio = sensorData.puntoRocio
@@ -113,7 +112,8 @@ class PrincipalViewModel(application: Application) : AndroidViewModel(applicatio
                         )
                     }
                     viewModelScope.launch {
-                        actualizarAlertaSensor(dataStoreManager.preferencesFlow.first().umbralHelada)
+                        val umbral = dataStoreManager.preferencesFlow.first().umbralHelada
+                        actualizarAlertaSensor(umbral, sensorData.puntoRocio)
                     }
                 }
             }
@@ -182,6 +182,7 @@ class PrincipalViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    // Lógica de alerta para la API
     fun actualizarAlertaApi(umbralCritico: Double) {
         val temp = _uiState.value.temperaturaApi
         val nuevaAlerta = when {
@@ -192,11 +193,12 @@ class PrincipalViewModel(application: Application) : AndroidViewModel(applicatio
         _uiState.update { it.copy(alertaApi = nuevaAlerta) }
     }
 
-    fun actualizarAlertaSensor(umbralCritico: Double) {
+    // Lógica de alerta para el Sensor (con nuevas reglas)
+    fun actualizarAlertaSensor(umbralCritico: Double, puntoRocio: Double) {
         val temp = _uiState.value.temperaturaSensor
         val nuevaAlerta = when {
             temp <= umbralCritico -> Alerta.Helada
-            temp <= 10.0 -> Alerta.Moderado
+            temp <= 10.0 && puntoRocio <= 0.0 -> Alerta.Moderado
             else -> Alerta.Estable
         }
         _uiState.update { it.copy(alertaSensor = nuevaAlerta) }

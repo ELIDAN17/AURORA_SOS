@@ -64,17 +64,31 @@ fun PrincipalScreen(
         }
     }
 
-    LaunchedEffect(uiState.temperaturaApi, uiState.temperaturaSensor, umbralCritico) {
+    // Llama a la lógica de actualización de alertas para la API
+    LaunchedEffect(uiState.temperaturaApi, umbralCritico) {
         viewModel.actualizarAlertaApi(umbralCritico)
-        viewModel.actualizarAlertaSensor(umbralCritico)
     }
 
+    // Llama a la lógica de actualización de alertas para el Sensor
+    LaunchedEffect(uiState.temperaturaSensor, umbralCritico, uiState.datosClimaticosSensor.puntoRocio) {
+        viewModel.actualizarAlertaSensor(umbralCritico, uiState.datosClimaticosSensor.puntoRocio)
+    }
+
+    // Dispara notificaciones de la API
     LaunchedEffect(uiState.alertaApi, notificacionesActivas) {
         if (uiState.alertaApi is Alerta.Helada && notificacionesActivas) {
             notificationService.showNotification(uiState.temperaturaApi)
         }
     }
 
+    // --- NOTIFICACIÓN PARA EL SENSOR (AÑADIDA Y CORREGIDA) ---
+    LaunchedEffect(uiState.alertaSensor, notificacionesActivas) {
+        if (uiState.alertaSensor is Alerta.Helada && notificacionesActivas) {
+            notificationService.showNotification(uiState.temperaturaSensor)
+        }
+    }
+
+    // Dispara notificación predictiva de la API
     LaunchedEffect(uiState.alertaPredictivaApi, notificacionesActivas) {
         if (uiState.alertaPredictivaApi != null && notificacionesActivas) {
             notificationService.showPredictiveNotification(uiState.alertaPredictivaApi!!)
@@ -180,14 +194,14 @@ fun PrincipalScreen(
                             onDismissRequest = { menuHistorialVisible = false }
                         ) {
                             DropdownMenuItem(
-                                text = { Text("Pronostico API") },
+                                text = { Text("Pronóstico API") },
                                 onClick = { 
                                     navController.navigate(Screen.Historial.route)
                                     menuHistorialVisible = false
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("Pronostico, Historial Sensor") },
+                                text = { Text("Historial Sensor") },
                                 onClick = { 
                                     navController.navigate(Screen.SensorHistorial.route)
                                     menuHistorialVisible = false

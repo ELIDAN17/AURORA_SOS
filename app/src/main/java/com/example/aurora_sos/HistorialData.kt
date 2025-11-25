@@ -40,7 +40,7 @@ data class HistorialUiState(
 // --- MODELOS PARA PANTALLA DE HISTORIAL (SENSOR) ---
 
 enum class RangoTiempoSensor(val texto: String, val dias: Long) {
-    ULTIMAS_24_HORAS("24 H", 1),
+    // Se elimina la opción de 24 horas
     SIETE_DIAS("7 Días", 7),
     TREINTA_DIAS("30 Días", 30)
 }
