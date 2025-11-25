@@ -1,5 +1,6 @@
 package com.example.aurora_sos
 
+import android.app.Application
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -17,7 +18,9 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
@@ -32,7 +35,7 @@ import kotlin.math.roundToInt
 @Composable
 fun HistorialScreen(
     navController: NavController,
-    viewModel: HistorialViewModel = viewModel()
+    viewModel: HistorialViewModel = viewModel(factory = ViewModelFactory(LocalContext.current.applicationContext as Application))
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -43,7 +46,7 @@ fun HistorialScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Historial y Pronóstico") },
+                title = { Text("Historial y Pronóstico", color = Color.Black) },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = fondoClaro)
             )
         }
@@ -59,7 +62,6 @@ fun HistorialScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // --- TARJETA PRINCIPAL DEL GRÁFICO ---
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -72,16 +74,28 @@ fun HistorialScreen(
                     modifier = Modifier.fillMaxSize(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    // --- TÍTULO DINÁMICO DEL GRÁFICO ---
+                    val tituloGrafico = when (uiState.rangoSeleccionado) {
+                        RangoTiempo.ULTIMAS_24_HORAS -> "Pronóstico a 24 Horas"
+                        RangoTiempo.CINCO_DIAS -> "Pronóstico a 5 Días"
+                        RangoTiempo.TREINTA_DIAS -> "Historial de 30 Días"
+                    }
+                    Text(
+                        text = tituloGrafico,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black, // <-- CAMBIO A NEGRO
+                        modifier = Modifier.padding(top = 16.dp)
+                    )
+                    
                     Spacer(modifier = Modifier.height(8.dp))
-
-                    // Leyenda del gráfico (se adapta al rango seleccionado)
+                    
                     GraficoLeyenda(rangoSeleccionado = uiState.rangoSeleccionado.texto)
 
-                    // Contenedor del gráfico
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(16.dp),
+                            .padding(start = 8.dp, end = 8.dp, top = 16.dp, bottom = 32.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         when {
@@ -97,7 +111,6 @@ fun HistorialScreen(
                                 )
                             }
                             else -> {
-                                // Dibuja el gráfico según el tipo de datos
                                 when (val datos = uiState.datosGrafico) {
                                     is DatosGrafico.Historial -> {
                                         if (datos.datos.isNotEmpty()) {
@@ -134,7 +147,6 @@ fun HistorialScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // --- BOTONES DE SELECCIÓN DE RANGO ---
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
@@ -158,7 +170,6 @@ fun HistorialScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // --- BOTONES DE NAVEGACIÓN ---
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -169,7 +180,6 @@ fun HistorialScreen(
                     containerColor = Color.White,
                     contentColor = colorLetraAzul
                 )
-
                 ElevatedButton(
                     onClick = { navController.popBackStack() },
                     colors = buttonColors
@@ -186,8 +196,6 @@ fun HistorialScreen(
         }
     }
 }
-
-// --- COMPOSABLES AUXILIARES (GRÁFICO Y LEYENDA) ---
 
 @Composable
 fun GraficoLeyenda(rangoSeleccionado: String) {
@@ -208,10 +216,10 @@ fun GraficoLeyenda(rangoSeleccionado: String) {
             Text(" TMin", fontSize = 12.sp, modifier = Modifier.padding(start = 4.dp, end = 8.dp))
 
             Box(modifier = Modifier.size(10.dp).background(Color(0xFF90CAF9), RoundedCornerShape(2.dp)))
-            Text(" Precip.", fontSize = 12.sp, modifier = Modifier.padding(start = 4.dp))
+            Text(" Precip. (mm)", fontSize = 12.sp, modifier = Modifier.padding(start = 4.dp))
         } else {
             Box(modifier = Modifier.size(10.dp).background(Color(0xFF90CAF9), RoundedCornerShape(2.dp)))
-            Text(" Humedad", fontSize = 12.sp, modifier = Modifier.padding(start = 4.dp))
+            Text(" Humedad (%)", fontSize = 12.sp, modifier = Modifier.padding(start = 4.dp))
         }
     }
 }
@@ -226,18 +234,19 @@ fun GraficoLineasManual(
 ) {
     val esPronostico = rangoSeleccionado != RangoTiempo.TREINTA_DIAS.texto
 
-    if (esPronostico && datosPronostico.isEmpty()) return
-    if (!esPronostico && datosHistorial.isEmpty()) return
+    if ((esPronostico && datosPronostico.isEmpty()) || (!esPronostico && datosHistorial.isEmpty())) {
+        return
+    }
 
     val minTemp: Double
     val maxTemp: Double
 
     if (esPronostico) {
-        minTemp = datosPronostico.minOf { it.temp }
-        maxTemp = datosPronostico.maxOf { it.temp }
+        minTemp = datosPronostico.minOfOrNull { it.temp } ?: 0.0
+        maxTemp = datosPronostico.maxOfOrNull { it.temp } ?: 0.0
     } else {
-        minTemp = datosHistorial.minOf { minOf(it.tmin, it.tmax) }
-        maxTemp = datosHistorial.maxOf { maxOf(it.tmin, it.tmax) }
+        minTemp = datosHistorial.minOfOrNull { minOf(it.tmin, it.tmax) } ?: 0.0
+        maxTemp = datosHistorial.maxOfOrNull { maxOf(it.tmin, it.tmax) } ?: 0.0
     }
 
     val paddedMinTemp = (minTemp - 2).roundToInt().toDouble()
@@ -245,48 +254,83 @@ fun GraficoLineasManual(
     val rangoTemp = (paddedMaxTemp - paddedMinTemp).coerceAtLeast(1.0)
 
     val datosSize = if (esPronostico) datosPronostico.size else datosHistorial.size
-    if (datosSize < 2) return
+    if (datosSize < 1) return
 
-    val colorLinea1 = Color(0xFFFF9800)
-    val colorLinea2 = Color.Blue
-    val colorBarra = Color(0xFF90CAF9)
+    val colorLinea1 = Color(0xFFFF9800) // Naranja para TMax/Temp
+    val colorLinea2 = Color.Blue          // Azul para TMin
+    val colorBarra = Color(0xFF90CAF9)   // Azul claro para Humedad/Precipitación
 
     val textMeasurer = rememberTextMeasurer()
-    val paddingEjeY_Izquierda = 40.dp
-    val paddingEjeY_Derecha = 40.dp
+    val paddingEjeY_Izquierda = 48.dp
+    val paddingEjeY_Derecha = 48.dp
     val paddingEjeX_Abajo = 40.dp
 
     Canvas(modifier = modifier) {
-        val anchoCanvas = size.width - paddingEjeY_Izquierda.toPx() - paddingEjeY_Derecha.toPx()
-        val altoCanvas = size.height - paddingEjeX_Abajo.toPx()
-        val anchoPaso = anchoCanvas / (datosSize - 1)
+        val anchoTotal = size.width
+        val altoTotal = size.height
 
-        // Dibuja el contenido del gráfico desplazado a la derecha para el padding izquierdo
-        translate(left = paddingEjeY_Izquierda.toPx()) {
-            // --- EJE Y (IZQUIERDA) - TEMPERATURA ---
-            val estiloEtiquetaY = TextStyle(fontSize = 10.sp, color = Color.Gray, textAlign = TextAlign.End)
-            val numeroDeEtiquetasY = 5
-            val pasoEtiquetaTemp = rangoTemp / numeroDeEtiquetasY
+        val anchoCanvas = anchoTotal - paddingEjeY_Izquierda.toPx() - paddingEjeY_Derecha.toPx()
+        val altoCanvas = altoTotal - paddingEjeX_Abajo.toPx()
 
-            (0..numeroDeEtiquetasY).forEach { i ->
-                val temp = paddedMinTemp + (i * pasoEtiquetaTemp)
-                val y = altoCanvas - ((i.toFloat() / numeroDeEtiquetasY) * altoCanvas)
+        val anchoPaso = if (datosSize > 1) anchoCanvas / (datosSize - 1) else anchoCanvas
 
+        // --- EJE Y (IZQUIERDA) - TEMPERATURA ---
+        val estiloEtiquetaTemp = TextStyle(fontSize = 10.sp, color = Color.Gray, textAlign = TextAlign.End)
+        val numeroDeEtiquetasY = 5
+        val pasoEtiquetaTemp = rangoTemp / numeroDeEtiquetasY
+
+        (0..numeroDeEtiquetasY).forEach { i ->
+            val temp = paddedMinTemp + (i * pasoEtiquetaTemp)
+            val y = altoCanvas - ((i.toFloat() / numeroDeEtiquetasY) * altoCanvas)
+            drawText(
+                textMeasurer,
+                "${temp.roundToInt()}°",
+                topLeft = Offset(paddingEjeY_Izquierda.toPx() - 4.dp.toPx(), y - 8.sp.toPx()),
+                style = estiloEtiquetaTemp
+            )
+            // Línea de guía horizontal
+            drawLine(
+                color = Color.LightGray.copy(alpha = 0.3f),
+                start = Offset(paddingEjeY_Izquierda.toPx(), y),
+                end = Offset(anchoTotal - paddingEjeY_Derecha.toPx(), y),
+                strokeWidth = 1f,
+                pathEffect = PathEffect.dashPathEffect(floatArrayOf(5f, 5f))
+            )
+        }
+
+        // --- EJE Y (DERECHA) - HUMEDAD o PRECIPITACIÓN ---
+        val estiloEtiquetaDer = TextStyle(fontSize = 10.sp, color = colorBarra.copy(alpha = 0.8f), textAlign = TextAlign.Start)
+        if (esPronostico) {
+            // Eje para Humedad (0% a 100%)
+            (0..4).forEach { i ->
+                val porciento = i * 25
+                val y = altoCanvas - ((porciento / 100f) * altoCanvas)
                 drawText(
                     textMeasurer,
-                    "${temp.roundToInt()}°",
-                    topLeft = Offset(-paddingEjeY_Izquierda.toPx() + 8.dp.toPx(), y - 8.sp.toPx()),
-                    style = estiloEtiquetaY
-                )
-                drawLine(
-                    color = Color.LightGray.copy(alpha = 0.3f),
-                    start = Offset(0f, y),
-                    end = Offset(anchoCanvas, y),
-                    strokeWidth = 1f,
-                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f))
+                    "$porciento%",
+                    topLeft = Offset(anchoTotal - paddingEjeY_Derecha.toPx() + 4.dp.toPx(), y - 8.sp.toPx()),
+                    style = estiloEtiquetaDer
                 )
             }
+        } else { // Historial
+            // Eje para Precipitación (escala dinámica)
+            val maxPrecip = datosHistorial.maxOfOrNull { it.precip }?.toFloat() ?: 0f
+            if (maxPrecip > 0f) {
+                 (0..4).forEach { i ->
+                    val precipValor = (i / 4f) * maxPrecip
+                    val y = altoCanvas - ((i.toFloat() / 4f) * altoCanvas)
+                    drawText(
+                        textMeasurer,
+                        "${String.format("%.1f", precipValor)} mm",
+                        topLeft = Offset(anchoTotal - paddingEjeY_Derecha.toPx() + 4.dp.toPx(), y - 8.sp.toPx()),
+                        style = estiloEtiquetaDer
+                    )
+                }
+            }
+        }
 
+        // Dibuja el contenido del gráfico dentro de los márgenes
+        translate(left = paddingEjeY_Izquierda.toPx()) {
             // --- EJE X (ABAJO) --- 
             val estiloEtiquetaX = TextStyle(fontSize = 10.sp, color = Color.Black, textAlign = TextAlign.Center)
             if (esPronostico) {
@@ -340,14 +384,14 @@ fun GraficoLineasManual(
                     if (index == 0) pathLinea1.moveTo(x, yTemp) else pathLinea1.lineTo(x, yTemp)
                 }
             } else { // Historial
-                val maxPrecip = datosHistorial.maxOfOrNull { it.precip }?.coerceAtLeast(1.0) ?: 1.0
+                val maxPrecip = datosHistorial.maxOfOrNull { it.precip }?.toFloat() ?: 0.001f
                 datosHistorial.forEachIndexed { index, entry ->
                     val x = index * anchoPaso
                     val yTMax = (altoCanvas - (((entry.tmax - paddedMinTemp) / rangoTemp) * altoCanvas)).toFloat()
                     val yTMin = (altoCanvas - (((entry.tmin - paddedMinTemp) / rangoTemp) * altoCanvas)).toFloat()
                     
                     if (entry.precip > 0) {
-                        val altoBarraPrecip = ((entry.precip / maxPrecip) * (altoCanvas / 2)).toFloat()
+                        val altoBarraPrecip = ((entry.precip.toFloat() / maxPrecip) * altoCanvas)
                         drawRect(
                             color = colorBarra.copy(alpha = 0.5f),
                             topLeft = Offset(x - anchoBarra / 2, altoCanvas - altoBarraPrecip),
@@ -363,7 +407,7 @@ fun GraficoLineasManual(
                         pathLinea2.lineTo(x, yTMin)
                     }
                 }
-                drawPath(path = pathLinea2, color = colorLinea2, style = Stroke(width = 5f))
+                drawPath(path = pathLinea2, color = colorLinea2, style = Stroke(width = 4f))
             }
             drawPath(path = pathLinea1, color = colorLinea1, style = Stroke(width = 5f))
         }

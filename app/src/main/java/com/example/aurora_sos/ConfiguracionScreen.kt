@@ -1,8 +1,7 @@
-// Archivo: ConfiguracionScreen.kt
-
 package com.example.aurora_sos
 
 import android.Manifest
+import android.app.Application
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -10,113 +9,204 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
+import com.google.android.gms.tasks.CancellationTokenSource
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ConfiguracionScreen(navController: NavController) {
+fun ConfiguracionScreen(
+    navController: NavController,
+    viewModel: ConfiguracionViewModel = viewModel(factory = ViewModelFactory(LocalContext.current.applicationContext as Application))
+) {
     val context = LocalContext.current
     val dataStoreManager = remember { DataStoreManager(context) }
     val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
 
-    // Comprobamos si ya tenemos el permiso
+    val uiState by viewModel.uiState.collectAsState()
+
+    // --- State and Logic for Permissions ---
     var hasNotificationPermission by remember {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            mutableStateOf(
-                ContextCompat.checkSelfPermission(
-                    context,
-                    Manifest.permission.POST_NOTIFICATIONS
-                ) == PackageManager.PERMISSION_GRANTED
-            )
-        } else {
-            mutableStateOf(true)
-        }
+        mutableStateOf(
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+            } else { true }
+        )
     }
 
-    // Preparamos el lanzador de la solicitud de permiso
-    val permissionLauncher = rememberLauncherForActivityResult(
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
         onResult = { isGranted ->
             hasNotificationPermission = isGranted
             if (!isGranted) {
-                // Si el usuario deniega el permiso, nos aseguramos de guardar el estado del switch como "apagado"
-                scope.launch {
-                    val currentConfig = dataStoreManager.preferencesFlow.first()
-                    dataStoreManager.saveConfiguracion(currentConfig.first, false)
+                scope.launch { dataStoreManager.saveConfiguracion(dataStoreManager.preferencesFlow.first().copy(notificacionesActivas = false)) }
+            }
+        }
+    )
+
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions(),
+        onResult = { permissions ->
+            if (permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true || permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true) {
+                val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
+                if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                    fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, CancellationTokenSource().token)
+                        .addOnSuccessListener { location ->
+                            if (location != null) {
+                                viewModel.buscarCiudadPorCoordenadas(location.latitude, location.longitude)
+                            } else {
+                                scope.launch { snackbarHostState.showSnackbar("No se pudo obtener la ubicación. Intenta de nuevo.") }
+                            }
+                        }
+                        .addOnFailureListener { 
+                            scope.launch { snackbarHostState.showSnackbar("Error al obtener la ubicación: ${it.message}") }
+                        }
                 }
             }
         }
     )
 
+    // --- State for TextFields ---
     val configData by dataStoreManager.preferencesFlow.collectAsState(
-        initial = Pair(2.0, true)
+        initial = UserPreferences(2.0, true, -15.84, -70.02, "Puno", "PE")
     )
 
     var umbralText by remember { mutableStateOf("") }
+    var ciudadText by remember { mutableStateOf("") }
+    var paisText by remember { mutableStateOf("") }
 
     LaunchedEffect(configData) {
-        umbralText = configData.first.toString()
+        umbralText = configData.umbralHelada.toString()
+        ciudadText = configData.nombreCiudad
+        paisText = configData.codigoPais
     }
 
-    // El estado del switch ahora depende de si el permiso está concedido Y de lo que guardó el usuario
-    val notificacionesActivadas = hasNotificationPermission && configData.second
+    val notificacionesSwitchState = hasNotificationPermission && configData.notificacionesActivas
 
+    // --- Side Effects ---
+    LaunchedEffect(uiState.error, uiState.guardadoConExito) {
+        if (uiState.error != null) {
+            snackbarHostState.showSnackbar(uiState.error!!, duration = SnackbarDuration.Long)
+            viewModel.resetState()
+        }
+        if (uiState.guardadoConExito) {
+            snackbarHostState.showSnackbar("¡Configuración guardada con éxito!")
+            navController.previousBackStackEntry?.savedStateHandle?.set("config_updated", true)
+            navController.popBackStack()
+        }
+    }
+
+    LaunchedEffect(uiState.ciudadEncontrada, uiState.paisEncontrado) {
+        uiState.ciudadEncontrada?.let { ciudadText = it }
+        uiState.paisEncontrado?.let { paisText = it }
+    }
+
+    val textFieldColors = TextFieldDefaults.outlinedTextFieldColors(
+        focusedBorderColor = Color.Black,
+        unfocusedBorderColor = Color.Black.copy(alpha = 0.7f),
+        focusedLabelColor = Color.Black,
+        unfocusedLabelColor = Color.Black.copy(alpha = 0.8f),
+        cursorColor = Color.Black
+    )
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Configuración") }, colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF87CEEB))) }
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        topBar = { 
+            TopAppBar(
+                title = { Text("Configuración", color = Color.Black) }, 
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF87CEEB))
+            )
+        }
     ) { paddingValues ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color(0xFF87CEEB))
-                .padding(paddingValues)
-                .padding(16.dp),
+            modifier = Modifier.fillMaxSize().background(Color(0xFF87CEEB)).padding(paddingValues).padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(modifier = Modifier.height(32.dp))
-            Text("Umbral de Alerta de Helada", style = MaterialTheme.typography.titleLarge)
-            Spacer(modifier = Modifier.height(8.dp))
+            Text("Umbral de Alerta", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.Black)
             OutlinedTextField(
                 value = umbralText,
-                onValueChange = { umbralText = it.filter { char -> char.isDigit() || char == '.' } },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                onValueChange = { umbralText = it.filter { char -> char.isDigit() || char == '.' || char == '-' } },
                 label = { Text("Temperatura crítica (°C)") },
-                modifier = Modifier.width(200.dp)
+                modifier = Modifier.fillMaxWidth(),
+                colors = textFieldColors,
+                singleLine = true
             )
+
+            Spacer(modifier = Modifier.height(24.dp))
+            Text("Ubicación", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.Black)
+            Text(
+                text = "Si tu ciudad no es encontrada, intenta con una localidad cercana más grande.",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.Black.copy(alpha = 0.7f),
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+            
+            Button(onClick = { 
+                locationPermissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+            }) {
+                Icon(Icons.Default.LocationOn, contentDescription = "Usar ubicación actual")
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Usar mi ubicación actual")
+            }
+            
+            OutlinedTextField(
+                value = ciudadText,
+                onValueChange = { ciudadText = it },
+                label = { Text("Ciudad") },
+                modifier = Modifier.fillMaxWidth(),
+                colors = textFieldColors,
+                singleLine = true
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = paisText,
+                onValueChange = { paisText = it },
+                label = { Text("Código de País (ej: PE, US, ES)") },
+                modifier = Modifier.fillMaxWidth(),
+                colors = textFieldColors,
+                singleLine = true
+            )
+
             Spacer(modifier = Modifier.height(32.dp))
 
-            // --- Control: Activar Notificaciones (CON LÓGICA DE PERMISO) ---
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal=40.dp),
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("Activar Notificaciones", style = MaterialTheme.typography.titleLarge)
+                Text("Activar Notificaciones", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = Color.Black)
                 Switch(
-                    checked = notificacionesActivadas,
+                    checked = notificacionesSwitchState,
                     onCheckedChange = { isChecked ->
                         scope.launch {
-                            val currentConfig = dataStoreManager.preferencesFlow.first()
                             if (isChecked) {
-                                // 3. Si el usuario quiere activar, PRIMERO pedimos el permiso
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                    permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !hasNotificationPermission) {
+                                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                } else {
+                                    dataStoreManager.saveConfiguracion(configData.copy(notificacionesActivas = true))
                                 }
-                                dataStoreManager.saveConfiguracion(currentConfig.first, true)
                             } else {
-                                // Si quiere desactivar, simplemente guardamos el estado
-                                dataStoreManager.saveConfiguracion(currentConfig.first, false)
+                                dataStoreManager.saveConfiguracion(configData.copy(notificacionesActivas = false))
                             }
                         }
                     }
@@ -125,17 +215,22 @@ fun ConfiguracionScreen(navController: NavController) {
 
             Spacer(modifier = Modifier.weight(1f))
 
+            val buttonColors = ButtonDefaults.elevatedButtonColors(
+                containerColor = Color.White,
+                contentColor = Color(0xFF0D47A1)
+            )
+
             ElevatedButton(
-                onClick = {
-                    val umbralNuevo = umbralText.toDoubleOrNull() ?: configData.first
-                    scope.launch {
-                        dataStoreManager.saveConfiguracion(umbralNuevo, notificacionesActivadas)
-                    }
-                    navController.popBackStack()
-                },
-                modifier = Modifier.width(200.dp).height(50.dp)
+                onClick = { viewModel.guardarConfiguracion(umbralText, ciudadText, paisText, notificacionesSwitchState) },
+                colors = buttonColors,
+                modifier = Modifier.fillMaxWidth().height(50.dp),
+                enabled = !uiState.isLoading
             ) {
-                Text("Guardar")
+                if (uiState.isLoading) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White)
+                } else {
+                    Text("Guardar y Actualizar")
+                }
             }
             Spacer(modifier = Modifier.height(16.dp))
         }

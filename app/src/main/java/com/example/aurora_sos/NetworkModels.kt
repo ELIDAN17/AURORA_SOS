@@ -1,5 +1,5 @@
-// Archivo: NetworkModels.kt
 package com.example.aurora_sos
+
 import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonNames
@@ -7,13 +7,21 @@ import kotlinx.serialization.json.JsonNames
 @OptIn(InternalSerializationApi::class)
 @Serializable
 data class WeatherResponse(
-    val main: MainData
+    val main: MainData,
+    val wind: WindData // Añadido para el viento
 )
 
 @OptIn(InternalSerializationApi::class)
 @Serializable
 data class MainData(
-    val temp: Double
+    val temp: Double,
+    val humidity: Double // Añadido para la humedad
+)
+
+@OptIn(InternalSerializationApi::class)
+@Serializable
+data class WindData(
+    val speed: Double
 )
 
 @OptIn(InternalSerializationApi::class)

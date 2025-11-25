@@ -1,260 +1,184 @@
 package com.example.aurora_sos
 
-import android.util.Log
-import com.google.firebase.database.DataSnapshot
-import com.google.firebase.database.DatabaseError
-import com.google.firebase.database.ValueEventListener
-import com.google.firebase.database.ktx.database
-import com.google.firebase.ktx.Firebase
+import android.app.Application
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshContainer
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import androidx.navigation.compose.rememberNavController
-import androidx.compose.runtime.DisposableEffect
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
-// --- IMPORTS PARA ANIMACIÓN ---
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.togetherWith
-
-// --- IMPORTS PARA EL "TRABAJADOR" DE INTERNET (KTOR) ---
-import io.ktor.client.*
-import io.ktor.client.engine.cio.*
-import io.ktor.client.plugins.contentnegotiation.*
-import io.ktor.client.request.*
-import io.ktor.client.call.*
-import io.ktor.serialization.kotlinx.json.*
-import kotlinx.coroutines.launch
-import kotlinx.serialization.json.Json
-import java.util.Calendar
-
-// --- Tu función 'getAlertaData' no cambia ---
-fun getAlertaData(temperatura: Double, umbralCritico: Double): Pair<Color, String> {
-    val colorRojo = Color.Red
-    val colorNaranja = Color(0xFFFF9800)
-    val colorVerde = Color(0xFF8BC34A)
-
-    return when {
-        temperatura <= umbralCritico -> Pair(colorRojo, "Alerta: Riesgo de Helada")
-        temperatura <= 10.0 -> Pair(colorNaranja, "Alerta: Riesgo moderado")
-        else -> Pair(colorVerde, "Alerta: Estable")
-    }
-}
-
-
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PrincipalScreen(navController: NavController) {
-
-    // --- Lógica de DataStore (no cambia) ---
+fun PrincipalScreen(
+    navController: NavController,
+    viewModel: PrincipalViewModel = viewModel(factory = ViewModelFactory(LocalContext.current.applicationContext as Application))
+) {
+    val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     val dataStoreManager = remember { DataStoreManager(context) }
     val notificationService = remember { NotificationService(context) }
 
     val configData by dataStoreManager.preferencesFlow.collectAsState(
-        initial = Pair(2.0, true)
+        initial = UserPreferences(2.0, true, -15.84, -70.02, "Puno", "PE")
     )
-    val umbralCritico = configData.first
-    val notificacionesActivas = configData.second
+    val umbralCritico = configData.umbralHelada
+    val notificacionesActivas = configData.notificacionesActivas
 
-    // --- NUEVOS ESTADOS para la predicción ---
-    var temperaturaActual by remember { mutableStateOf(30.0) } // Tu valor por defecto
-    var prediccionMinima by remember { mutableStateOf<Double?>(null) } // ¡Nuevo!
-    var errorMessage by remember { mutableStateOf<String?>(null) } // Para errores
-
-    val coroutineScope = rememberCoroutineScope()
-    val database = Firebase.database("https://aurorasos-default-rtdb.firebaseio.com/")
-    val tempRef = database.getReference("aurora/temperatura")
-
-    // --- TRABAJADOR 1: PIDE EL CLIMA Y LA PREDICCIÓN (CON 2 LLAMADAS) ---
-    LaunchedEffect(Unit) {
-
-        val client = HttpClient(CIO) {
-            install(ContentNegotiation) {
-                json(Json {
-                    ignoreUnknownKeys = true // ¡Esto sigue siendo vital!
-                })
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.lanzarLlamadaApi()
             }
         }
-
-        val apiKey = "5435a01f60d70475e9294d39e22d30d0" // Tu llave "Default"
-        val latPuno = "-15.84"
-        val lonPuno = "-70.02"
-
-        // URLs para las dos APIs gratuitas
-        val urlClimaActual = "https://api.openweathermap.org/data/2.5/weather?lat=${latPuno}&lon=${lonPuno}&appid=${apiKey}&units=metric"
-        val urlPronostico = "https://api.openweathermap.org/data/2.5/forecast?lat=${latPuno}&lon=${lonPuno}&appid=${apiKey}&units=metric"
-
-        try {
-            errorMessage = null
-
-            // --- LLAMADA 1: Obtener clima actual ---
-            val responseActual: WeatherResponse = client.get(urlClimaActual).body()
-            val tempDeOWM = responseActual.main.temp
-
-            // Escribimos el dato actual en Firebase (como antes)
-            coroutineScope.launch {
-                tempRef.setValue(tempDeOWM)
-            }
-
-            // --- LLAMADA 2: Obtener pronóstico ---
-            val responsePronostico: ForecastResponse = client.get(urlPronostico).body()
-
-            // --- Lógica para encontrar la mínima de mañana ---
-            val manana = Calendar.getInstance()
-            manana.add(Calendar.DAY_OF_YEAR, 1) // Sumamos 1 día
-            val diaDeManana = manana.get(Calendar.DAY_OF_YEAR)
-
-            var tempMinimaManana = 100.0 // Empezamos con un número alto
-
-            // Recorremos la lista del pronóstico
-            for (item in responsePronostico.list) {
-                val itemCalendar = Calendar.getInstance()
-                itemCalendar.timeInMillis = item.dt * 1000L // 'dt' está en segundos
-                val diaDelItem = itemCalendar.get(Calendar.DAY_OF_YEAR)
-
-                // Si el item es de "mañana" y su tempMin es más baja...
-                if (diaDelItem == diaDeManana && item.main.tempMin < tempMinimaManana) {
-                    tempMinimaManana = item.main.tempMin
-                }
-            }
-            prediccionMinima = tempMinimaManana
-
-
-        } catch (e: Exception) {
-            Log.e("PrincipalScreen", "Error al llamar a OWM: ${e.message}")
-            errorMessage = e.message
-        }
-
-        client.close()
-    }
-
-
-    // --- TRABAJADOR 2: ESCUCHA FIREBASE (SIEMPRE) ---
-    // (Este código no cambia)
-    DisposableEffect(Unit) {
-        val valueEventListener = object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                val temp = snapshot.getValue(Double::class.java)
-                if (temp != null) {
-                    temperaturaActual = temp
-                }
-            }
-            override fun onCancelled(error: DatabaseError) {
-                Log.e("Firebase", "Error al leer la temperatura", error.toException())
-            }
-        }
-        tempRef.addValueEventListener(valueEventListener)
+        lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
-            tempRef.removeEventListener(valueEventListener)
+            lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
 
-    // --- El resto de tu código de UI y Animaciones (no cambia) ---
-    val (colorObjetivo, mensajeAlerta) = getAlertaData(temperaturaActual, umbralCritico)
+    LaunchedEffect(uiState.temperaturaActual, umbralCritico) {
+        viewModel.actualizarAlerta(umbralCritico)
+    }
 
-    val fondoColorAnimado by animateColorAsState(
-        targetValue = colorObjetivo, label = "ColorDeFondoAnimado",
-        animationSpec = tween(durationMillis = 1000)
+    LaunchedEffect(uiState.alerta, notificacionesActivas) {
+        if (uiState.alerta is Alerta.Helada && notificacionesActivas) {
+            notificationService.showNotification(uiState.temperaturaActual)
+        }
+    }
+
+    LaunchedEffect(uiState.alertaPredictiva, notificacionesActivas) {
+        if (uiState.alertaPredictiva != null && notificacionesActivas) {
+            notificationService.showPredictiveNotification(uiState.alertaPredictiva!!)
+        }
+    }
+
+    val colorFondo by animateColorAsState(
+        targetValue = when (uiState.alerta) {
+            is Alerta.Helada -> Color.Red
+            is Alerta.Moderado -> Color(0xFFFF9800)
+            is Alerta.Estable -> Color(0xFF8BC34A)
+        },
+        animationSpec = tween(1000),
+        label = "colorFondo"
     )
 
-    LaunchedEffect(temperaturaActual, notificacionesActivas) {
-        if (temperaturaActual <= umbralCritico && notificacionesActivas) {
-            notificationService.showNotification(temperaturaActual)
+    val pullToRefreshState = rememberPullToRefreshState()
+    if (pullToRefreshState.isRefreshing) {
+        LaunchedEffect(true) {
+            viewModel.lanzarLlamadaApi()
+        }
+    }
+    
+    LaunchedEffect(uiState.isLoading) {
+        if (!uiState.isLoading) {
+            pullToRefreshState.endRefresh()
         }
     }
 
     Scaffold(
-        content = { paddingValues ->
+        modifier = Modifier.nestedScroll(pullToRefreshState.nestedScrollConnection)
+    ) {
+        Box(modifier = Modifier.fillMaxSize().background(colorFondo).padding(it)) {
             Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-                    .background(fondoColorAnimado),
+                modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
             ) {
+                Text(
+                    text = uiState.nombreCiudad,
+                    fontSize = 24.sp,
+                    color = Color.Black.copy(alpha = 0.9f),
+                    modifier = Modifier.padding(top = 16.dp)
+                )
 
-                // Si hay un error, lo muestra
-                if (!errorMessage.isNullOrEmpty()) {
-                    Text(
-                        text = "ERROR: $errorMessage",
-                        color = Color.Red,
-                        fontSize = 16.sp,
-                        modifier = Modifier.padding(16.dp)
-                    )
-                }
+                Spacer(modifier = Modifier.height(32.dp)) // Espacio flexible
 
-                Spacer(modifier = Modifier.weight(1f))
-
-                // Animación de Temperatura Actual
                 AnimatedContent(
-                    targetState = temperaturaActual.toInt(),
-                    label = "AnimacionTemperatura",
+                    targetState = uiState.temperaturaActual.toInt(),
+                    label = "tempAnim",
                     transitionSpec = {
-                        slideInVertically(animationSpec = tween(500)) { it } togetherWith
-                                slideOutVertically(animationSpec = tween(500)) { -it }
+                        slideInVertically(animationSpec = tween(500)) { h -> h } togetherWith
+                                slideOutVertically(animationSpec = tween(500)) { h -> -h }
                     }
-                ) { temperaturaInt ->
-                    Text(
-                        text = "$temperaturaInt° C",
-                        fontSize = 120.sp,
-                        color = Color.Black
-                    )
+                ) { temp ->
+                    Text(text = "$temp°C", fontSize = 120.sp, color = Color.Black)
+                }
+                
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                    DatoClimatico("Humedad", "${uiState.datosClimaticos.humedad.toInt()}%")
+                    DatoClimatico("Viento", "${String.format(Locale.US, "%.1f", uiState.datosClimaticos.velocidadViento)} km/h")
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Animación de Mensaje de Alerta
                 AnimatedContent(
-                    targetState = mensajeAlerta,
-                    label = "AnimacionMensajeAlerta",
-                    transitionSpec = {
-                        slideInVertically(animationSpec = tween(500)) { it } togetherWith
-                                slideOutVertically(animationSpec = tween(500)) { -it }
+                    targetState = when (uiState.alerta) {
+                        is Alerta.Helada -> "Alerta: Riesgo de Helada"
+                        is Alerta.Moderado -> "Alerta: Riesgo Moderado"
+                        is Alerta.Estable -> "Alerta: Estable"
+                    },
+                    label = "alertaAnim"
+                ) { msg ->
+                    Text(text = msg, fontSize = 24.sp, color = Color.Black, modifier = Modifier.padding(top = 8.dp))
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                if (uiState.pronosticoPorHoras.isNotEmpty()) {
+                    LazyRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        items(uiState.pronosticoPorHoras) { pronostico ->
+                            PronosticoHoraItem(pronostico = pronostico)
+                        }
                     }
-                ) { mensaje ->
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                if (uiState.pronosticoHelada != null) {
+                    PronosticoView(pronostico = uiState.pronosticoHelada!!)
+                } else if (uiState.error != null) {
                     Text(
-                        text = mensaje,
-                        fontSize = 24.sp,
-                        color = Color.Black
+                        text = uiState.error!!,
+                        color = Color.White,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 16.dp)
                     )
                 }
 
-                // --- ¡TEXTO DE PREDICCIÓN! ---
-                Spacer(modifier = Modifier.height(16.dp))
-                // Solo se muestra si 'prediccionMinima' tiene un valor
-                if (prediccionMinima != null) {
-                    val prediccionColor = if (prediccionMinima!! <= umbralCritico) Color.Red else Color.Black
+                Spacer(modifier = Modifier.weight(1f, fill = false)) // No ocupa espacio si no es necesario
 
-                    Text(
-                        text = "Predicción Mañana: Mín. ${prediccionMinima!!.toInt()}° C",
-                        fontSize = 20.sp,
-                        color = prediccionColor,
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                }
-                // --- FIN DEL TEXTO ---
-
-
-                Spacer(modifier = Modifier.weight(1f))
-
-                // Botones de Navegación
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 32.dp, start = 16.dp, end = 16.dp),
+                        .padding(bottom = 32.dp, start = 16.dp, end = 16.dp, top = 32.dp),
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
                     val buttonColors = ButtonDefaults.elevatedButtonColors(
@@ -265,7 +189,7 @@ fun PrincipalScreen(navController: NavController) {
                         onClick = { navController.navigate(Screen.Historial.route) },
                         colors = buttonColors
                     ) {
-                        Text("Historial de temperatura")
+                        Text("Historial")
                     }
                     ElevatedButton(
                         onClick = { navController.navigate(Screen.Configuracion.route) },
@@ -275,16 +199,54 @@ fun PrincipalScreen(navController: NavController) {
                     }
                 }
             }
-        },
-        bottomBar = {
-            Surface(color = Color.Transparent) {}
+            PullToRefreshContainer(
+                modifier = Modifier.align(Alignment.TopCenter),
+                state = pullToRefreshState,
+            )
         }
-    )
+    }
 }
 
-// --- Preview (no cambia) ---
-@Preview(showBackground = true)
 @Composable
-fun PrincipalScreenPreview() {
-    PrincipalScreen(navController = rememberNavController())
+fun DatoClimatico(nombre: String, valor: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(text = nombre, fontSize = 14.sp, color = Color.Black.copy(alpha = 0.8f))
+        Text(text = valor, fontSize = 20.sp, color = Color.Black)
+    }
+}
+
+@Composable
+private fun PronosticoHoraItem(pronostico: PronosticoHora) {
+    val formatter = remember { DateTimeFormatter.ofPattern("h a") }
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(text = "${pronostico.temperatura.toInt()}°", color = Color.Black, fontSize = 20.sp)
+        Text(text = pronostico.hora.format(formatter), color = Color.Black.copy(alpha = 0.8f), fontSize = 14.sp)
+    }
+}
+
+@Composable
+private fun PronosticoView(pronostico: PronosticoHelada) {
+    val formatter = remember { DateTimeFormatter.ofPattern("h:mm a", Locale("es", "ES")) }
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+        modifier = Modifier.padding(16.dp)
+    ) {
+        Text(
+            text = "Próxima baja temperatura:",
+            fontSize = 14.sp,
+            color = Color.Black
+        )
+        Text(
+            text = "${pronostico.temperaturaMinima.toInt()}°C",
+            fontSize = 32.sp,
+            color = Color.Black
+        )
+        Text(
+            text = "aprox. a las ${pronostico.hora.format(formatter)}",
+            fontSize = 12.sp,
+            color = Color.Black.copy(alpha = 0.9f)
+        )
+    }
 }

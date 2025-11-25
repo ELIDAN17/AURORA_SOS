@@ -35,7 +35,6 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-        // Enable desugaring
         isCoreLibraryDesugaringEnabled = true
     }
     kotlinOptions {
@@ -57,7 +56,6 @@ android {
 
 dependencies {
 
-    // Add desugaring support
     coreLibraryDesugaring(libs.desugar.jdk.libs)
 
     implementation(libs.androidx.core.ktx)
@@ -74,7 +72,8 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.database.ktx)
-    //implementation(libs.firebase.common.ktx)
+    implementation(libs.play.services.location)
+    implementation(libs.androidx.compose.material3) // Añadido para PullToRefresh
 
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.client.cio)
