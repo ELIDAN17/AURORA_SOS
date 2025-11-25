@@ -68,8 +68,8 @@ class NotificationService(private val context: Context) {
         notificationManager.notify(1, notification) // ID 1 para la alerta crítica
     }
 
-    // --- ¡NUEVA FUNCIÓN PARA ALERTAS PREDICTIVAS! ---
-    fun showPredictiveNotification(pronostico: PronosticoHelada) {
+    // --- FUNCIÓN CORREGIDA PARA ALERTAS PREDICTIVAS ---
+    fun showPredictiveNotification(pronostico: PronosticoHeladaApi) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                 Log.w("NotificationService", "No tiene permiso para mostrar notificaciones predictivas.")

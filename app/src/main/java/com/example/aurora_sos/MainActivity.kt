@@ -4,19 +4,16 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize // Import
-import androidx.compose.material3.MaterialTheme // Import
-import androidx.compose.material3.Surface // Import
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier // Import
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-
-// --- ¡AHORA ESTE IMPORT ES CORRECTO! ---
-import com.example.aurora_sos.ui.theme.AURORA_SOSTheme // <-- Usa tu nombre real
+import com.example.aurora_sos.ui.theme.AURORA_SOSTheme
+import com.example.aurora_sos.Screen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -25,22 +22,20 @@ class MainActivity : ComponentActivity() {
         notificationService.createNotificationChannel()
         enableEdgeToEdge()
         setContent {
-
-            // --- ¡Y ESTA FUNCIÓN AHORA ES CORRECTA! ---
-            AURORA_SOSTheme { // <-- Usa tu nombre real
+            AURORA_SOSTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    AppNavigation() // Tu navegación va aquí adentro
+                    AppNavigation()
                 }
             }
         }
     }
 }
+
 @Composable
 fun AppNavigation() {
-    // (Tu código de AppNavigation estaba perfecto)
     val navController = rememberNavController()
     NavHost(
         navController = navController,
@@ -58,14 +53,8 @@ fun AppNavigation() {
         composable(Screen.Historial.route) {
             HistorialScreen(navController)
         }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun ToDoListExamplePreview() {
-    // (Arreglamos el Preview también)
-    AURORA_SOSTheme { // <-- Usa tu nombre real
-        AppNavigation()
+        composable(Screen.SensorHistorial.route) {
+            SensorHistorialScreen(navController)
+        }
     }
 }

@@ -28,28 +28,42 @@ import java.time.Instant
 // --- Estado de la Interfaz --- //
 
 data class PrincipalUiState(
-    val temperaturaActual: Double = 30.0,
-    val pronosticoHelada: PronosticoHelada? = null,
-    val alerta: Alerta = Alerta.Estable,
-    val error: String? = null,
-    val isLoading: Boolean = true,
+    // Datos de la API
+    val temperaturaApi: Double = 30.0,
+    val pronosticoHeladaApi: PronosticoHeladaApi? = null,
+    val alertaApi: Alerta = Alerta.Estable,
     val nombreCiudad: String = "",
-    val datosClimaticos: DatosClimaticos = DatosClimaticos(0.0, 0.0),
-    val pronosticoPorHoras: List<PronosticoHora> = emptyList(),
-    val alertaPredictiva: PronosticoHelada? = null // Nuevo
+    val datosClimaticosApi: DatosClimaticosApi = DatosClimaticosApi(0.0, 0.0),
+    val pronosticoPorHorasApi: List<PronosticoHoraApi> = emptyList(),
+    val alertaPredictivaApi: PronosticoHeladaApi? = null,
+
+    // Datos del Sensor
+    val temperaturaSensor: Double = 30.0,
+    val alertaSensor: Alerta = Alerta.Estable,
+    val datosClimaticosSensor: DatosClimaticosSensor = DatosClimaticosSensor(0.0, 0, 0.0),
+
+    // Estado General
+    val error: String? = null,
+    val isLoading: Boolean = true
 )
 
-data class PronosticoHelada(
+data class PronosticoHeladaApi(
     val temperaturaMinima: Double,
     val hora: LocalDateTime
 )
 
-data class DatosClimaticos(
+data class DatosClimaticosApi(
     val humedad: Double,
     val velocidadViento: Double
 )
 
-data class PronosticoHora(
+data class DatosClimaticosSensor(
+    val humedad: Double,
+    val lluvia: Long,
+    val puntoRocio: Double
+)
+
+data class PronosticoHoraApi(
     val hora: LocalDateTime,
     val temperatura: Double
 )
@@ -68,7 +82,7 @@ class PrincipalViewModel(application: Application) : AndroidViewModel(applicatio
     val uiState = _uiState.asStateFlow()
 
     private val database = Firebase.database("https://aurorasos-default-rtdb.firebaseio.com/")
-    private val tempRef = database.getReference("aurora/temperatura")
+    private val auroraRef = database.getReference("aurora")
 
     private val dataStoreManager = DataStoreManager(application)
 
@@ -83,17 +97,30 @@ class PrincipalViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     private fun conectarAFirebase() {
-        tempRef.addValueEventListener(object : ValueEventListener {
+        auroraRef.addValueEventListener(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                val temp = snapshot.getValue(Double::class.java)
-                if (temp != null) {
-                    _uiState.update { it.copy(temperaturaActual = temp) }
+                val sensorData = snapshot.getValue(SensorData::class.java)
+                if (sensorData != null) {
+                    _uiState.update { state ->
+                        state.copy(
+                            temperaturaSensor = sensorData.temperatura,
+                            datosClimaticosSensor = DatosClimaticosSensor(
+                                // --- CORRECCIÓN AQUÍ ---
+                                humedad = sensorData.humedad.toDouble(),
+                                lluvia = sensorData.lluvia,
+                                puntoRocio = sensorData.puntoRocio
+                            )
+                        )
+                    }
+                    viewModelScope.launch {
+                        actualizarAlertaSensor(dataStoreManager.preferencesFlow.first().umbralHelada)
+                    }
                 }
             }
 
             override fun onCancelled(error: DatabaseError) {
                 Log.e("PrincipalViewModel", "Error al leer Firebase", error.toException())
-                _uiState.update { it.copy(error = "No se pudo conectar a la base de datos.") }
+                _uiState.update { it.copy(error = "No se pudo conectar al sensor.") }
             }
         })
     }
@@ -126,26 +153,25 @@ class PrincipalViewModel(application: Application) : AndroidViewModel(applicatio
                 val alertaPredictiva = pronosticoProximas24h.firstOrNull { it.main.temp <= config.umbralHelada }
 
                 val pronostico24h = responsePronostico.list.take(8).map {
-                    PronosticoHora(
+                    PronosticoHoraApi(
                         hora = LocalDateTime.ofInstant(Instant.ofEpochSecond(it.dt), ZoneId.systemDefault()),
                         temperatura = it.main.temp
                     )
                 }
 
-                _uiState.update {
-                    it.copy(
-                        pronosticoHelada = proximaHelada?.let { p -> PronosticoHelada(p.main.temp, LocalDateTime.ofInstant(Instant.ofEpochSecond(p.dt), ZoneId.systemDefault())) },
-                        datosClimaticos = DatosClimaticos(
+                _uiState.update { state ->
+                    state.copy(
+                        temperaturaApi = responseActual.main.temp,
+                        pronosticoHeladaApi = proximaHelada?.let { p -> PronosticoHeladaApi(p.main.temp, LocalDateTime.ofInstant(Instant.ofEpochSecond(p.dt), ZoneId.systemDefault())) },
+                        datosClimaticosApi = DatosClimaticosApi(
                             humedad = responseActual.main.humidity,
                             velocidadViento = responseActual.wind.speed
                         ),
-                        pronosticoPorHoras = pronostico24h,
-                        alertaPredictiva = alertaPredictiva?.let { a -> PronosticoHelada(a.main.temp, LocalDateTime.ofInstant(Instant.ofEpochSecond(a.dt), ZoneId.systemDefault())) }
+                        pronosticoPorHorasApi = pronostico24h,
+                        alertaPredictivaApi = alertaPredictiva?.let { a -> PronosticoHeladaApi(a.main.temp, LocalDateTime.ofInstant(Instant.ofEpochSecond(a.dt), ZoneId.systemDefault())) }
                     )
                 }
-
-                val tempActualApi = responseActual.main.temp
-                tempRef.setValue(tempActualApi)
+                actualizarAlertaApi(config.umbralHelada)
 
             } catch (e: Exception) {
                 Log.e("PrincipalViewModel", "Error al llamar a OWM", e)
@@ -156,14 +182,24 @@ class PrincipalViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    fun actualizarAlerta(umbralCritico: Double) {
-        val temp = _uiState.value.temperaturaActual
+    fun actualizarAlertaApi(umbralCritico: Double) {
+        val temp = _uiState.value.temperaturaApi
         val nuevaAlerta = when {
             temp <= umbralCritico -> Alerta.Helada
             temp <= 10.0 -> Alerta.Moderado
             else -> Alerta.Estable
         }
-        _uiState.update { it.copy(alerta = nuevaAlerta) }
+        _uiState.update { it.copy(alertaApi = nuevaAlerta) }
+    }
+
+    fun actualizarAlertaSensor(umbralCritico: Double) {
+        val temp = _uiState.value.temperaturaSensor
+        val nuevaAlerta = when {
+            temp <= umbralCritico -> Alerta.Helada
+            temp <= 10.0 -> Alerta.Moderado
+            else -> Alerta.Estable
+        }
+        _uiState.update { it.copy(alertaSensor = nuevaAlerta) }
     }
 
     override fun onCleared() {

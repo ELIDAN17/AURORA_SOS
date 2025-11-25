@@ -18,6 +18,10 @@ class ViewModelFactory(private val application: Application) : ViewModelProvider
             @Suppress("UNCHECKED_CAST")
             return ConfiguracionViewModel(application) as T
         }
+        if (modelClass.isAssignableFrom(SensorHistorialViewModel::class.java)) {
+            @Suppress("UNCHECKED_CAST")
+            return SensorHistorialViewModel(application) as T
+        }
         throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
     }
 }
