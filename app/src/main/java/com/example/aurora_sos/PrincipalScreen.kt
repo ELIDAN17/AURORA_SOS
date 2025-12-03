@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -95,7 +96,7 @@ fun PrincipalScreen(
     if (pullToRefreshState.isRefreshing) {
         LaunchedEffect(true) {
             viewModel.lanzarLlamadaApi()
-            pullToRefreshState.endRefresh() 
+            pullToRefreshState.endRefresh()
         }
     }
 
@@ -159,7 +160,8 @@ fun PrincipalScreen(
                             DatoClimatico("Pto. Rocío", "${String.format(Locale.US, "%.1f", uiState.datosClimaticosSensor.puntoRocio)}°C")
                         },
                         pronosticoPorHoras = {},
-                        pronosticoHelada = {}
+                        pronosticoHelada = {},
+                        tendenciaMessage = uiState.indicadorRiesgo.message // ¡NUEVO! Mensaje de tendencia
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -223,15 +225,16 @@ fun SeccionClima(
     alerta: Alerta,
     datosClimaticos: @Composable RowScope.() -> Unit,
     pronosticoPorHoras: @Composable () -> Unit,
-    pronosticoHelada: @Composable () -> Unit
+    pronosticoHelada: @Composable () -> Unit,
+    tendenciaMessage: String? = null // ¡MODIFICADO! Parámetro para el mensaje de tendencia
 ) {
     val cardContentColor = Color.Black
 
     val colorFondo by animateColorAsState(
         targetValue = when (alerta) {
-            is Alerta.Helada -> Color.Red
-            is Alerta.Moderado -> Color(0xFFFF9800)
-            is Alerta.Estable -> Color(0xFF8BC34A)
+            is Alerta.Helada -> Color(0xFFE57373)
+            is Alerta.Moderado -> Color(0xFFFFB74D)
+            is Alerta.Estable -> Color(0xFF81C784)
         },
         animationSpec = tween(1000),
         label = "colorFondoSeccion"
@@ -261,6 +264,20 @@ fun SeccionClima(
                 }
             ) { temp ->
                 Text(text = "$temp°C", fontSize = 60.sp, color = cardContentColor)
+            }
+
+            // ¡NUEVO! Muestra el mensaje de tendencia si está disponible
+            tendenciaMessage?.let {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = it,
+                    color = Color.Black, // Color de texto negro como solicitaste
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 8.dp)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
             }
 
             Row(
@@ -296,8 +313,8 @@ private fun PronosticoHoraItem(pronostico: PronosticoHoraApi) {
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Text(text = pronostico.hora.format(formatter), color = cardContentColor.copy(alpha = 0.8f), fontSize = 12.sp)
-        Text(text = "${pronostico.temperatura.toInt()}°C", color = cardContentColor, fontSize = 16.sp)
-        Divider(modifier = Modifier.width(24.dp)) 
+        Text(text = "${pronostico.temperatura.toInt()}°C", color = cardContentColor, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        Divider(modifier = Modifier.width(24.dp))
         Text(text = "Rocío: ${pronostico.dewPoint.toInt()}°", color = cardContentColor.copy(alpha = 0.7f), fontSize = 12.sp)
         Text(text = "Suelo: ${pronostico.soilTemperature.toInt()}°", color = cardContentColor.copy(alpha = 0.7f), fontSize = 12.sp)
     }
@@ -321,7 +338,8 @@ private fun PronosticoView(pronostico: PronosticoHeladaApi) {
             text = "${pronostico.temperaturaMinima.toInt()}°C a las ${pronostico.hora.format(formatter)}",
             fontSize = 14.sp,
             color = cardContentColor.copy(alpha = 0.9f),
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            fontWeight = FontWeight.Bold
         )
     }
 }

@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import java.time.LocalDateTime
+import kotlin.math.abs
 
 // --- Estado de la Interfaz --- //
 
@@ -39,6 +40,7 @@ data class PrincipalUiState(
     val temperaturaSensor: Double = 30.0,
     val alertaSensor: Alerta = Alerta.Estable,
     val datosClimaticosSensor: DatosClimaticosSensor = DatosClimaticosSensor(0.0, 0, 0.0),
+    val indicadorRiesgo: IndicadorRiesgo = IndicadorRiesgo.Estable(),
 
     // Estado General
     val error: String? = null,
@@ -76,6 +78,13 @@ sealed class Alerta {
     data object Helada : Alerta()   // Rojo
 }
 
+sealed class IndicadorRiesgo {
+    abstract val message: String
+    data class Estable(override val message: String = "Tendencia Estable") : IndicadorRiesgo()
+    data class Riesgo(override val message: String) : IndicadorRiesgo()
+    data class Peligro(override val message: String) : IndicadorRiesgo()
+}
+
 // --- ViewModel --- //
 
 class PrincipalViewModel(application: Application) : AndroidViewModel(application) {
@@ -94,6 +103,9 @@ class PrincipalViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    private var datosSensorAnteriores: SensorData? = null
+    private var tiempoLecturaAnterior: Long = 0L
+
     init {
         conectarAFirebase()
     }
@@ -103,19 +115,21 @@ class PrincipalViewModel(application: Application) : AndroidViewModel(applicatio
             override fun onDataChange(snapshot: DataSnapshot) {
                 val sensorData = snapshot.getValue(SensorData::class.java)
                 if (sensorData != null) {
+                    val datosSensorActuales = sensorData
                     _uiState.update { state ->
                         state.copy(
-                            temperaturaSensor = sensorData.temperatura,
+                            temperaturaSensor = datosSensorActuales.temperatura,
                             datosClimaticosSensor = DatosClimaticosSensor(
-                                humedad = sensorData.humedad.toDouble(),
-                                lluvia = sensorData.lluvia,
-                                puntoRocio = sensorData.puntoRocio
+                                humedad = datosSensorActuales.humedad.toDouble(),
+                                lluvia = datosSensorActuales.lluvia,
+                                puntoRocio = datosSensorActuales.puntoRocio
                             )
                         )
                     }
                     viewModelScope.launch {
-                        val umbral = dataStoreManager.preferencesFlow.first().umbralHelada
-                        actualizarAlertaSensor(umbral, sensorData.puntoRocio)
+                        val umbralHelada = dataStoreManager.preferencesFlow.first().umbralHelada
+                        actualizarAlertaSensor(umbralHelada, datosSensorActuales.puntoRocio)
+                        analizarTendenciaSensor(datosSensorActuales, umbralHelada)
                     }
                 }
             }
@@ -126,6 +140,40 @@ class PrincipalViewModel(application: Application) : AndroidViewModel(applicatio
             }
         })
     }
+
+    private fun analizarTendenciaSensor(datosNuevos: SensorData, umbralHelada: Double) {
+        val datosAntiguos = datosSensorAnteriores
+        val tiempoLecturaActual = System.currentTimeMillis()
+        var nuevoIndicador: IndicadorRiesgo = IndicadorRiesgo.Estable()
+
+        if (datosAntiguos != null && tiempoLecturaAnterior > 0) {
+            val deltaTiempoMin = (tiempoLecturaActual - tiempoLecturaAnterior) / (1000.0 * 60.0)
+
+            if (deltaTiempoMin > 0.5) { // Analizar solo si ha pasado un tiempo razonable (30s)
+                val caidaTemperatura = datosAntiguos.temperatura - datosNuevos.temperatura
+                val velocidadCaidaPorMin = caidaTemperatura / deltaTiempoMin
+
+                if (velocidadCaidaPorMin > 0.05) { // Si la temperatura baja a un ritmo notable
+                    val tempRestante = datosNuevos.temperatura - umbralHelada
+                    if (tempRestante > 0) {
+                        val minutosEstimados = (tempRestante / velocidadCaidaPorMin).toInt()
+                        nuevoIndicador = if (minutosEstimados < 120) {
+                            IndicadorRiesgo.Peligro("Helada posible en ~${minutosEstimados} min si la tendencia continúa.")
+                        } else {
+                            IndicadorRiesgo.Riesgo("La temperatura está bajando. ¡Abrígate!")
+                        }
+                    }
+                } else if (velocidadCaidaPorMin < -0.1) { // Si la temperatura sube
+                     nuevoIndicador = IndicadorRiesgo.Estable("La temperatura está subiendo.")
+                } 
+            }
+        }
+
+        _uiState.update { it.copy(indicadorRiesgo = nuevoIndicador) }
+        datosSensorAnteriores = datosNuevos
+        tiempoLecturaAnterior = tiempoLecturaActual
+    }
+
 
     fun lanzarLlamadaApi() {
         _uiState.update { it.copy(isLoading = true, error = null) }
@@ -142,9 +190,8 @@ class PrincipalViewModel(application: Application) : AndroidViewModel(applicatio
 
                 val response: OpenMeteoResponse = client.get(url).body()
 
-                // --- MANEJO SEGURO DE DATOS NULOS ---
                 response.current?.let { currentData ->
-                     _uiState.update { state ->
+                    _uiState.update { state ->
                         state.copy(
                             temperaturaApi = currentData.temperature,
                             datosClimaticosApi = DatosClimaticosApi(
@@ -194,7 +241,7 @@ class PrincipalViewModel(application: Application) : AndroidViewModel(applicatio
                 }
 
                 if (response.current == null && response.hourly == null) {
-                     _uiState.update { it.copy(error = "Respuesta de la API inválida.") }
+                    _uiState.update { it.copy(error = "Respuesta de la API inválida.") }
                 }
 
             } catch (e: Exception) {
