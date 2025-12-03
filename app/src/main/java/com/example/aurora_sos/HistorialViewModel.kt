@@ -15,9 +15,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
-import java.time.Instant
 import java.time.LocalDateTime
-import java.time.ZoneId
 
 class HistorialViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -33,7 +31,7 @@ class HistorialViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     init {
-        seleccionarRango(RangoTiempo.SIETE_DIAS)
+        seleccionarRango(RangoTiempo.SIETE_DIAS) // Carga inicial por defecto
     }
 
     fun seleccionarRango(rango: RangoTiempo) {
@@ -49,20 +47,24 @@ class HistorialViewModel(application: Application) : AndroidViewModel(applicatio
             val lat = config.latitud
             val lon = config.longitud
 
-            val apiKey = "5435a01f60d70475e9294d39e22d30d0"
-            val url = "https://api.openweathermap.org/data/2.5/forecast?lat=$lat&lon=$lon&appid=$apiKey&units=metric"
+            val forecastDays = if (rango == RangoTiempo.SIETE_DIAS) 7 else 1
+            val url = "https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon" +
+                      "&hourly=temperature_2m,relative_humidity_2m,dew_point_2m&forecast_days=$forecastDays"
 
-            val response: ForecastResponse = client.get(url).body()
-            val itemsAProcesar = if (rango == RangoTiempo.ULTIMAS_24_HORAS) response.list.take(8) else response.list
+            val response: OpenMeteoResponse = client.get(url).body()
 
-            val pronosticoProcesado = itemsAProcesar.map {
-                PronosticoEntry(
-                    timestamp = LocalDateTime.ofInstant(Instant.ofEpochSecond(it.dt), ZoneId.of("UTC")),
-                    temp = it.main.temp,
-                    humedad = it.main.humidity
-                )
+            response.hourly?.let { hourlyData ->
+                val pronosticoProcesado = hourlyData.time.mapIndexed { index, timeString ->
+                    PronosticoEntry(
+                        timestamp = LocalDateTime.parse(timeString),
+                        temp = hourlyData.temperature[index],
+                        humedad = hourlyData.humidity[index].toDouble()
+                    )
+                }
+                _uiState.update { it.copy(isLoading = false, datosGrafico = DatosGrafico.Pronostico(pronosticoProcesado)) }
+            } ?: run {
+                _uiState.update { it.copy(isLoading = false, error = "No se recibieron datos de pronóstico.") }
             }
-            _uiState.update { it.copy(isLoading = false, datosGrafico = DatosGrafico.Pronostico(pronosticoProcesado)) }
         } catch (e: Exception) {
             _uiState.update { it.copy(isLoading = false, error = "No se pudo cargar el pronóstico.") }
         }

@@ -22,8 +22,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import java.time.LocalDateTime
-import java.time.ZoneId
-import java.time.Instant
 
 // --- Estado de la Interfaz --- //
 
@@ -33,7 +31,7 @@ data class PrincipalUiState(
     val pronosticoHeladaApi: PronosticoHeladaApi? = null,
     val alertaApi: Alerta = Alerta.Estable,
     val nombreCiudad: String = "",
-    val datosClimaticosApi: DatosClimaticosApi = DatosClimaticosApi(0.0, 0.0),
+    val datosClimaticosApi: DatosClimaticosApi = DatosClimaticosApi(0.0, 0.0, 0.0, 0.0),
     val pronosticoPorHorasApi: List<PronosticoHoraApi> = emptyList(),
     val alertaPredictivaApi: PronosticoHeladaApi? = null,
 
@@ -54,7 +52,9 @@ data class PronosticoHeladaApi(
 
 data class DatosClimaticosApi(
     val humedad: Double,
-    val velocidadViento: Double
+    val velocidadViento: Double,
+    val puntoRocio: Double,
+    val soilTemperature: Double
 )
 
 data class DatosClimaticosSensor(
@@ -65,7 +65,9 @@ data class DatosClimaticosSensor(
 
 data class PronosticoHoraApi(
     val hora: LocalDateTime,
-    val temperatura: Double
+    val temperatura: Double,
+    val dewPoint: Double,
+    val soilTemperature: Double
 )
 
 sealed class Alerta {
@@ -134,47 +136,69 @@ class PrincipalViewModel(application: Application) : AndroidViewModel(applicatio
                 val lon = config.longitud
                 _uiState.update { it.copy(nombreCiudad = config.nombreCiudad) }
 
-                val apiKey = "5435a01f60d70475e9294d39e22d30d0"
-                val urlClimaActual = "https://api.openweathermap.org/data/2.5/weather?lat=$lat&lon=$lon&appid=$apiKey&units=metric"
-                val urlPronostico = "https://api.openweathermap.org/data/2.5/forecast?lat=$lat&lon=$lon&appid=$apiKey&units=metric"
+                val url = "https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon" +
+                        "&current=temperature_2m,relative_humidity_2m,dew_point_2m,wind_speed_10m,soil_temperature_0cm" +
+                        "&hourly=temperature_2m,dew_point_2m,soil_temperature_0cm&forecast_days=2"
 
-                val responseActual: WeatherResponse = client.get(urlClimaActual).body()
-                val responsePronostico: ForecastResponse = client.get(urlPronostico).body()
+                val response: OpenMeteoResponse = client.get(url).body()
 
-                val ahora = LocalDateTime.now()
-                val limite24h = ahora.plusHours(24)
-
-                val pronosticoProximas24h = responsePronostico.list.filter { 
-                    LocalDateTime.ofInstant(Instant.ofEpochSecond(it.dt), ZoneId.systemDefault()).isAfter(ahora) &&
-                    LocalDateTime.ofInstant(Instant.ofEpochSecond(it.dt), ZoneId.systemDefault()).isBefore(limite24h)
+                // --- MANEJO SEGURO DE DATOS NULOS ---
+                response.current?.let { currentData ->
+                     _uiState.update { state ->
+                        state.copy(
+                            temperaturaApi = currentData.temperature,
+                            datosClimaticosApi = DatosClimaticosApi(
+                                humedad = currentData.humidity.toDouble(),
+                                velocidadViento = currentData.windSpeed,
+                                puntoRocio = currentData.dewPoint,
+                                soilTemperature = currentData.soilTemperature
+                            )
+                        )
+                    }
+                    actualizarAlertaApi(config.umbralHelada)
                 }
 
-                val proximaHelada = pronosticoProximas24h.minByOrNull { it.main.temp }
-                val alertaPredictiva = pronosticoProximas24h.firstOrNull { it.main.temp <= config.umbralHelada }
+                response.hourly?.let { hourlyData ->
+                    val ahora = LocalDateTime.now()
+                    val limite24h = ahora.plusHours(24)
 
-                val pronostico24h = responsePronostico.list.take(8).map {
-                    PronosticoHoraApi(
-                        hora = LocalDateTime.ofInstant(Instant.ofEpochSecond(it.dt), ZoneId.systemDefault()),
-                        temperatura = it.main.temp
-                    )
+                    val indiceActual = hourlyData.time.indexOfFirst { timeString ->
+                        LocalDateTime.parse(timeString).isAfter(ahora)
+                    }.takeIf { it != -1 } ?: 0
+
+                    val pronosticoProximas8h = hourlyData.time.subList(indiceActual, (indiceActual + 8).coerceAtMost(hourlyData.time.size))
+                        .mapIndexed { index, timeString ->
+                            val actualIndex = indiceActual + index
+                            PronosticoHoraApi(
+                                hora = LocalDateTime.parse(timeString),
+                                temperatura = hourlyData.temperature[actualIndex],
+                                dewPoint = hourlyData.dewPoint[actualIndex],
+                                soilTemperature = hourlyData.soilTemperature[actualIndex]
+                            )
+                        }
+
+                    val pronosticoProximas24h = hourlyData.time
+                        .mapIndexed { index, timeString -> Pair(LocalDateTime.parse(timeString), hourlyData.temperature[index]) }
+                        .filter { it.first.isAfter(ahora) && it.first.isBefore(limite24h) }
+
+                    val proximaHelada = pronosticoProximas24h.minByOrNull { it.second }
+                    val alertaPredictiva = pronosticoProximas24h.firstOrNull { it.second <= config.umbralHelada }
+
+                    _uiState.update { state ->
+                        state.copy(
+                            pronosticoPorHorasApi = pronosticoProximas8h,
+                            pronosticoHeladaApi = proximaHelada?.let { (hora, temp) -> PronosticoHeladaApi(temp, hora) },
+                            alertaPredictivaApi = alertaPredictiva?.let { (hora, temp) -> PronosticoHeladaApi(temp, hora) }
+                        )
+                    }
                 }
 
-                _uiState.update { state ->
-                    state.copy(
-                        temperaturaApi = responseActual.main.temp,
-                        pronosticoHeladaApi = proximaHelada?.let { p -> PronosticoHeladaApi(p.main.temp, LocalDateTime.ofInstant(Instant.ofEpochSecond(p.dt), ZoneId.systemDefault())) },
-                        datosClimaticosApi = DatosClimaticosApi(
-                            humedad = responseActual.main.humidity,
-                            velocidadViento = responseActual.wind.speed
-                        ),
-                        pronosticoPorHorasApi = pronostico24h,
-                        alertaPredictivaApi = alertaPredictiva?.let { a -> PronosticoHeladaApi(a.main.temp, LocalDateTime.ofInstant(Instant.ofEpochSecond(a.dt), ZoneId.systemDefault())) }
-                    )
+                if (response.current == null && response.hourly == null) {
+                     _uiState.update { it.copy(error = "Respuesta de la API inválida.") }
                 }
-                actualizarAlertaApi(config.umbralHelada)
 
             } catch (e: Exception) {
-                Log.e("PrincipalViewModel", "Error al llamar a OWM", e)
+                Log.e("PrincipalViewModel", "Error al llamar a Open-Meteo", e)
                 _uiState.update { it.copy(error = "No se pudo obtener el pronóstico.") }
             } finally {
                 _uiState.update { it.copy(isLoading = false) }
@@ -182,7 +206,6 @@ class PrincipalViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    // Lógica de alerta para la API
     fun actualizarAlertaApi(umbralCritico: Double) {
         val temp = _uiState.value.temperaturaApi
         val nuevaAlerta = when {
@@ -193,7 +216,6 @@ class PrincipalViewModel(application: Application) : AndroidViewModel(applicatio
         _uiState.update { it.copy(alertaApi = nuevaAlerta) }
     }
 
-    // Lógica de alerta para el Sensor (con nuevas reglas)
     fun actualizarAlertaSensor(umbralCritico: Double, puntoRocio: Double) {
         val temp = _uiState.value.temperaturaSensor
         val nuevaAlerta = when {

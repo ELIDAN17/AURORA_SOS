@@ -45,7 +45,7 @@ fun PrincipalScreen(
     val notificationService = remember { NotificationService(context) }
 
     val configData by dataStoreManager.preferencesFlow.collectAsState(
-        initial = UserPreferences(2.0, true, -15.84, -70.02, "Puno", "PE")
+        initial = UserPreferences(2.0, true, -12.0464, -77.0428, "Lima", "PE")
     )
     val umbralCritico = configData.umbralHelada
     val notificacionesActivas = configData.notificacionesActivas
@@ -84,8 +84,10 @@ fun PrincipalScreen(
     }
 
     LaunchedEffect(uiState.alertaPredictivaApi, notificacionesActivas) {
-        if (uiState.alertaPredictivaApi != null && notificacionesActivas) {
-            notificationService.showPredictiveNotification(uiState.alertaPredictivaApi!!)
+        uiState.alertaPredictivaApi?.let {
+            if (notificacionesActivas) {
+                notificationService.showPredictiveNotification(it)
+            }
         }
     }
 
@@ -93,12 +95,7 @@ fun PrincipalScreen(
     if (pullToRefreshState.isRefreshing) {
         LaunchedEffect(true) {
             viewModel.lanzarLlamadaApi()
-        }
-    }
-
-    LaunchedEffect(uiState.isLoading) {
-        if (!uiState.isLoading) {
-            pullToRefreshState.endRefresh()
+            pullToRefreshState.endRefresh() 
         }
     }
 
@@ -116,15 +113,16 @@ fun PrincipalScreen(
                 ) {
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    SeccionClima( 
+                    SeccionClima(
                         titulo = uiState.nombreCiudad,
                         temperatura = uiState.temperaturaApi,
                         alerta = uiState.alertaApi,
                         datosClimaticos = {
                             DatoClimatico("Humedad", "${uiState.datosClimaticosApi.humedad.toInt()}%")
-                            DatoClimatico("Viento", "${String.format(Locale.US, "%.1f", uiState.datosClimaticosApi.velocidadViento)} km/h")
+                            DatoClimatico("Pto. Rocío", "${String.format(Locale.US, "%.1f", uiState.datosClimaticosApi.puntoRocio)}°C")
+                            DatoClimatico("Temp. Suelo", "${String.format(Locale.US, "%.1f", uiState.datosClimaticosApi.soilTemperature)}°C")
                         },
-                        pronosticoPorHoras = { 
+                        pronosticoPorHoras = {
                             LazyRow(
                                 modifier = Modifier.fillMaxWidth(),
                                 contentPadding = PaddingValues(horizontal = 16.dp),
@@ -135,12 +133,12 @@ fun PrincipalScreen(
                                 }
                             }
                         },
-                        pronosticoHelada = { 
-                            if (uiState.pronosticoHeladaApi != null) {
-                                PronosticoView(pronostico = uiState.pronosticoHeladaApi!!)
-                            } else if (uiState.error != null) {
+                        pronosticoHelada = {
+                            uiState.pronosticoHeladaApi?.let { pronostico ->
+                                PronosticoView(pronostico = pronostico)
+                            } ?: uiState.error?.let {
                                 Text(
-                                    text = uiState.error!!,
+                                    text = it,
                                     color = MaterialTheme.colorScheme.error,
                                     textAlign = TextAlign.Center,
                                     modifier = Modifier.padding(horizontal = 16.dp)
@@ -174,7 +172,7 @@ fun PrincipalScreen(
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
                     var menuHistorialVisible by remember { mutableStateOf(false) }
-                    
+
                     Box {
                         ElevatedButton(
                             onClick = { menuHistorialVisible = true }
@@ -187,14 +185,14 @@ fun PrincipalScreen(
                         ) {
                             DropdownMenuItem(
                                 text = { Text("Pronóstico API") },
-                                onClick = { 
+                                onClick = {
                                     navController.navigate(Screen.Historial.route)
                                     menuHistorialVisible = false
                                 }
                             )
                             DropdownMenuItem(
                                 text = { Text("Historial Sensor") },
-                                onClick = { 
+                                onClick = {
                                     navController.navigate(Screen.SensorHistorial.route)
                                     menuHistorialVisible = false
                                 }
@@ -227,7 +225,7 @@ fun SeccionClima(
     pronosticoPorHoras: @Composable () -> Unit,
     pronosticoHelada: @Composable () -> Unit
 ) {
-    val cardContentColor = Color.Black // Texto siempre negro
+    val cardContentColor = Color.Black
 
     val colorFondo by animateColorAsState(
         targetValue = when (alerta) {
@@ -253,7 +251,7 @@ fun SeccionClima(
                 fontSize = 20.sp,
                 color = cardContentColor.copy(alpha = 0.9f)
             )
-            
+
             AnimatedContent(
                 targetState = temperatura.toInt(),
                 label = "tempAnimSeccion",
@@ -282,7 +280,7 @@ fun SeccionClima(
 
 @Composable
 fun DatoClimatico(nombre: String, valor: String) {
-    val cardContentColor = Color.Black // Texto siempre negro
+    val cardContentColor = Color.Black
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(horizontal = 4.dp)) {
         Text(text = nombre, fontSize = 12.sp, color = cardContentColor.copy(alpha = 0.8f))
         Text(text = valor, fontSize = 16.sp, color = cardContentColor, textAlign = TextAlign.Center)
@@ -291,17 +289,23 @@ fun DatoClimatico(nombre: String, valor: String) {
 
 @Composable
 private fun PronosticoHoraItem(pronostico: PronosticoHoraApi) {
-    val cardContentColor = Color.Black // Texto siempre negro
+    val cardContentColor = Color.Black
     val formatter = remember { DateTimeFormatter.ofPattern("h a") }
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(text = "${pronostico.temperatura.toInt()}°", color = cardContentColor, fontSize = 18.sp)
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
         Text(text = pronostico.hora.format(formatter), color = cardContentColor.copy(alpha = 0.8f), fontSize = 12.sp)
+        Text(text = "${pronostico.temperatura.toInt()}°C", color = cardContentColor, fontSize = 16.sp)
+        Divider(modifier = Modifier.width(24.dp)) 
+        Text(text = "Rocío: ${pronostico.dewPoint.toInt()}°", color = cardContentColor.copy(alpha = 0.7f), fontSize = 12.sp)
+        Text(text = "Suelo: ${pronostico.soilTemperature.toInt()}°", color = cardContentColor.copy(alpha = 0.7f), fontSize = 12.sp)
     }
 }
 
 @Composable
 private fun PronosticoView(pronostico: PronosticoHeladaApi) {
-    val cardContentColor = Color.Black // Texto siempre negro
+    val cardContentColor = Color.Black
     val formatter = remember { DateTimeFormatter.ofPattern("h:mm a", Locale("es", "ES")) }
 
     Column(
