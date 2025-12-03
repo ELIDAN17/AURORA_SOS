@@ -1,14 +1,15 @@
 package com.example.aurora_sos
 
 import android.app.Application
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -27,8 +28,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 import kotlin.math.roundToInt
+
+private enum class HistorialVista(val texto: String) { 
+    GRAFICO("Gráfico"), 
+    BITACORA("Bitácora") 
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -37,129 +45,20 @@ fun SensorHistorialScreen(
     viewModel: SensorHistorialViewModel = viewModel(factory = ViewModelFactory(LocalContext.current.applicationContext as Application))
 ) {
     val uiState by viewModel.uiState.collectAsState()
-
-    val colorLineaTMax = Color(0xFFFF9800)
-    val colorLineaTMin = Color.Blue
-    val colorBarraPrecip = Color(0xFF90CAF9)
-    val etiquetaTextColor = MaterialTheme.colorScheme.onSurface
+    var vistaSeleccionada by remember { mutableStateOf(HistorialVista.GRAFICO) }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Historial del Sensor", color = MaterialTheme.colorScheme.onBackground) },
+                title = { Text("Historial del Sensor y Bitacora", color = MaterialTheme.colorScheme.onBackground) },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
-        }
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-                .padding(paddingValues)
-                .padding(horizontal = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Card(
+        },
+        bottomBar = {
+             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f),
-                shape = RoundedCornerShape(8.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "Historial de ${uiState.rangoSeleccionado.texto}",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(top = 16.dp)
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    GraficoLeyendaHistorial(tmaxColor = colorLineaTMax, tminColor = colorLineaTMin, precipColor = colorBarraPrecip, textColor = etiquetaTextColor)
-
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(start = 8.dp, end = 8.dp, top = 16.dp, bottom = 32.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        when {
-                            uiState.isLoading -> {
-                                CircularProgressIndicator()
-                            }
-                            uiState.error != null -> {
-                                Text(
-                                    text = uiState.error ?: "Error desconocido",
-                                    color = MaterialTheme.colorScheme.error,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.padding(16.dp)
-                                )
-                            }
-                            else -> {
-                                when (val datos = uiState.datosGrafico) {
-                                    is DatosGrafico.Historial -> {
-                                        if (datos.datos.isNotEmpty()) {
-                                            GraficoLineasHistorial(
-                                                modifier = Modifier.fillMaxSize(),
-                                                datosHistorial = datos.datos,
-                                                etiquetasX = datos.etiquetas,
-                                                lineaTMaxColor = colorLineaTMax,
-                                                lineaTMinColor = colorLineaTMin,
-                                                barraPrecipColor = colorBarraPrecip,
-                                                etiquetaTextColor = etiquetaTextColor
-                                            )
-                                        } else {
-                                            Text("No hay datos de historial para mostrar.")
-                                        }
-                                    }
-                                    else -> {
-                                        Text("Seleccione un rango para ver los datos.")
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                RangoTiempoSensor.entries.forEach { rango ->
-                    OutlinedButton(
-                        onClick = { viewModel.seleccionarRango(rango) },
-                        colors = if (rango == uiState.rangoSeleccionado) {
-                            ButtonDefaults.outlinedButtonColors(
-                                containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-                                contentColor = MaterialTheme.colorScheme.primary
-                            )
-                        } else {
-                            ButtonDefaults.outlinedButtonColors()
-                        }
-                    ) {
-                        Text(rango.texto)
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
+                    .padding(vertical = 16.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                 ElevatedButton(
@@ -169,26 +68,137 @@ fun SensorHistorialScreen(
                 }
             }
         }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(horizontal = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                HistorialVista.entries.forEach { vista ->
+                    SegmentedButton(
+                        colors = SegmentedButtonDefaults.colors(
+                            activeContainerColor = MaterialTheme.colorScheme.secondary,
+                            activeContentColor = MaterialTheme.colorScheme.onSecondary,
+                            inactiveContainerColor = MaterialTheme.colorScheme.surface,
+                            inactiveContentColor = MaterialTheme.colorScheme.onSurface
+                        ),
+                        shape = SegmentedButtonDefaults.itemShape(index = vista.ordinal, count = HistorialVista.entries.size),
+                        onClick = { vistaSeleccionada = vista },
+                        selected = vistaSeleccionada == vista
+                    ) {
+                        Text(vista.texto)
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            AnimatedContent(targetState = vistaSeleccionada, label = "vista_historial") { vista ->
+                when (vista) {
+                    HistorialVista.GRAFICO -> VistaGrafico(uiState = uiState, viewModel = viewModel)
+                    HistorialVista.BITACORA -> VistaBitacora(uiState = uiState)
+                }
+            }
+        }
     }
 }
 
 @Composable
-fun GraficoLeyendaHistorial(tmaxColor: Color, tminColor: Color, precipColor: Color, textColor: Color) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(modifier = Modifier.size(10.dp).background(tmaxColor, RoundedCornerShape(2.dp)))
-        Text(" TMax", fontSize = 12.sp, modifier = Modifier.padding(start = 4.dp, end = 8.dp), color = textColor)
+private fun VistaGrafico(uiState: SensorHistorialUiState, viewModel: SensorHistorialViewModel) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxHeight()) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(4.dp)
+        ) {
+             if (uiState.isLoading) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            } else if (uiState.error != null) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(uiState.error!!, color = Color.Red, textAlign = TextAlign.Center, modifier = Modifier.padding(16.dp)) }
+            } else if (uiState.datosGrafico is DatosGrafico.Historial && uiState.datosGrafico.datos.isNotEmpty()) {
+                 GraficoLineasHistorial(
+                    modifier = Modifier.fillMaxSize().padding(16.dp),
+                    datosHistorial = uiState.datosGrafico.datos,
+                    etiquetasX = uiState.datosGrafico.etiquetas
+                )
+            } else {
+                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("No hay datos de historial para mostrar.") }
+            }
+        }
 
-        Box(modifier = Modifier.size(10.dp).background(tminColor, RoundedCornerShape(2.dp)))
-        Text(" TMin", fontSize = 12.sp, modifier = Modifier.padding(start = 4.dp, end = 8.dp), color = textColor)
+        Spacer(modifier = Modifier.height(16.dp))
 
-        Box(modifier = Modifier.size(10.dp).background(precipColor, RoundedCornerShape(2.dp)))
-        Text(" Precip. (mm)", fontSize = 12.sp, modifier = Modifier.padding(start = 4.dp), color = textColor)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            RangoTiempoSensor.entries.forEach { rango ->
+                FilterChip(
+                    selected = uiState.rangoSeleccionado == rango,
+                    onClick = { viewModel.seleccionarRango(rango) },
+                    label = { Text(rango.texto) }
+                )
+                Spacer(modifier = Modifier.width(16.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun VistaBitacora(uiState: SensorHistorialUiState) {
+    if (uiState.isLoading && uiState.eventosTendencia.isEmpty()) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+        return
+    }
+    if (uiState.eventosTendencia.isEmpty()) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text("No hay eventos de tendencia registrados.", textAlign = TextAlign.Center, modifier = Modifier.padding(16.dp))
+        }
+        return
+    }
+
+    LazyColumn(modifier = Modifier.fillMaxSize()) {
+        items(uiState.eventosTendencia) { evento ->
+            val fechaHora = try {
+                LocalDateTime.parse(evento.timestamp, DateTimeFormatter.ISO_DATE_TIME)
+                    .format(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT))
+            } catch (e: Exception) {
+                evento.timestamp
+            }
+
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                elevation = CardDefaults.cardElevation(2.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = fechaHora,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                        modifier = Modifier.weight(0.4f)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = evento.mensaje,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.weight(0.6f)
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -197,10 +207,10 @@ fun GraficoLineasHistorial(
     modifier: Modifier = Modifier,
     datosHistorial: List<HistorialEntry>,
     etiquetasX: List<String>,
-    lineaTMaxColor: Color,
-    lineaTMinColor: Color,
-    barraPrecipColor: Color,
-    etiquetaTextColor: Color
+    lineaTMaxColor: Color = Color(0xFFFF9800),
+    lineaTMinColor: Color = Color.Blue,
+    barraPrecipColor: Color = Color(0xFF90CAF9),
+    etiquetaTextColor: Color = MaterialTheme.colorScheme.onSurface
 ) {
     if (datosHistorial.isEmpty()) return
 
@@ -237,7 +247,7 @@ fun GraficoLineasHistorial(
         }
 
         val estiloEtiquetaPrecip = TextStyle(fontSize = 10.sp, color = barraPrecipColor.copy(alpha = 0.8f), textAlign = TextAlign.Start)
-        val maxPrecip = datosHistorial.maxOfOrNull { it.precip }?.toFloat() ?: 0f
+        val maxPrecip = datosHistorial.maxOfOrNull { it.precip.toFloat() } ?: 0f
         if (maxPrecip > 0f) {
             (0..4).forEach { i ->
                 val precipValor = (i / 4f) * maxPrecip

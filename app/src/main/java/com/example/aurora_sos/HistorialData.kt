@@ -5,6 +5,7 @@ import java.time.LocalDateTime
 // --- MODELOS DE DATOS COMUNES PARA GRÁFICOS ---
 
 data class HistorialEntry(
+    val fecha: String, // ¡AÑADIDO! La fecha es necesaria
     val tmin: Double,
     val tmax: Double,
     val precip: Double,
@@ -45,9 +46,4 @@ enum class RangoTiempoSensor(val texto: String, val dias: Long) {
     TREINTA_DIAS("30 Días", 30)
 }
 
-data class SensorHistorialUiState(
-    val isLoading: Boolean = true,
-    val rangoSeleccionado: RangoTiempoSensor = RangoTiempoSensor.SIETE_DIAS,
-    val datosGrafico: DatosGrafico = DatosGrafico.Vacio,
-    val error: String? = null
-)
+// Se elimina SensorHistorialUiState ya que no se usa directamente aquí

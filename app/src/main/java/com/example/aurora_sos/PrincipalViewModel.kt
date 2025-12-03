@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 import kotlin.math.abs
 
 // --- Estado de la Interfaz --- //
@@ -72,6 +73,12 @@ data class PronosticoHoraApi(
     val soilTemperature: Double
 )
 
+// ¡NUEVO! Data class para guardar eventos de tendencia
+data class TendenciaEvento(
+    val mensaje: String = "",
+    val timestamp: String = ""
+)
+
 sealed class Alerta {
     data object Estable : Alerta() // Verde
     data object Moderado : Alerta() // Amarillo
@@ -94,6 +101,7 @@ class PrincipalViewModel(application: Application) : AndroidViewModel(applicatio
 
     private val database = Firebase.database("https://aurorasos-default-rtdb.firebaseio.com/")
     private val auroraRef = database.getReference("aurora")
+    private val eventosRef = database.getReference("eventos_tendencia") // ¡NUEVO! Referencia para eventos
 
     private val dataStoreManager = DataStoreManager(application)
 
@@ -149,29 +157,42 @@ class PrincipalViewModel(application: Application) : AndroidViewModel(applicatio
         if (datosAntiguos != null && tiempoLecturaAnterior > 0) {
             val deltaTiempoMin = (tiempoLecturaActual - tiempoLecturaAnterior) / (1000.0 * 60.0)
 
-            if (deltaTiempoMin > 0.5) { // Analizar solo si ha pasado un tiempo razonable (30s)
+            if (deltaTiempoMin > 0.5) {
                 val caidaTemperatura = datosAntiguos.temperatura - datosNuevos.temperatura
                 val velocidadCaidaPorMin = caidaTemperatura / deltaTiempoMin
 
-                if (velocidadCaidaPorMin > 0.05) { // Si la temperatura baja a un ritmo notable
+                if (velocidadCaidaPorMin > 0.05) { 
                     val tempRestante = datosNuevos.temperatura - umbralHelada
                     if (tempRestante > 0) {
                         val minutosEstimados = (tempRestante / velocidadCaidaPorMin).toInt()
                         nuevoIndicador = if (minutosEstimados < 120) {
                             IndicadorRiesgo.Peligro("Helada posible en ~${minutosEstimados} min si la tendencia continúa.")
                         } else {
-                            IndicadorRiesgo.Riesgo("La temperatura está bajando. ¡Abrígate!")
+                            IndicadorRiesgo.Riesgo("La temperatura está bajando. ¡Abrígate y prevee tus productos!")
                         }
                     }
-                } else if (velocidadCaidaPorMin < -0.1) { // Si la temperatura sube
+                } else if (velocidadCaidaPorMin < -0.1) { 
                      nuevoIndicador = IndicadorRiesgo.Estable("La temperatura está subiendo.")
                 } 
             }
+        }
+        
+        // ¡NUEVO! Guardar en Firebase si el riesgo no es estable
+        if (nuevoIndicador !is IndicadorRiesgo.Estable) {
+            guardarEventoDeTendencia(nuevoIndicador.message)
         }
 
         _uiState.update { it.copy(indicadorRiesgo = nuevoIndicador) }
         datosSensorAnteriores = datosNuevos
         tiempoLecturaAnterior = tiempoLecturaActual
+    }
+    
+    // ¡NUEVO! Función para guardar el evento en Firebase
+    private fun guardarEventoDeTendencia(mensaje: String) {
+        val timestamp = LocalDateTime.now().format(DateTimeFormatter.ISO_DATE_TIME)
+        val evento = TendenciaEvento(mensaje, timestamp)
+        // Usamos el timestamp como clave única para evitar sobreescribir y mantener un orden cronológico
+        eventosRef.child(timestamp).setValue(evento)
     }
 
 

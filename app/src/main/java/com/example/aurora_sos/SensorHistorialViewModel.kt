@@ -1,7 +1,6 @@
 package com.example.aurora_sos
 
 import android.app.Application
-import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.database.DataSnapshot
@@ -16,84 +15,75 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
-class SensorHistorialViewModel(application: Application) : AndroidViewModel(application) {
+// --- Modelo de UI ---
+data class SensorHistorialUiState(
+    val isLoading: Boolean = true,
+    val error: String? = null,
+    val datosGrafico: DatosGrafico = DatosGrafico.Vacio,
+    val rangoSeleccionado: RangoTiempoSensor = RangoTiempoSensor.SIETE_DIAS,
+    val eventosTendencia: List<TendenciaEvento> = emptyList()
+)
 
+// --- ViewModel ---
+class SensorHistorialViewModel(application: Application) : AndroidViewModel(application) {
     private val _uiState = MutableStateFlow(SensorHistorialUiState())
     val uiState = _uiState.asStateFlow()
 
-    private var datosHistorialCache: Map<LocalDate, SensorHistorial>? = null
+    private val database = Firebase.database("https://aurorasos-default-rtdb.firebaseio.com/")
+    private val historialRef = database.getReference("historial")
+    private val eventosRef = database.getReference("eventos_tendencia")
 
     init {
-        obtenerHistorialFirebase { 
-            seleccionarRango(RangoTiempoSensor.SIETE_DIAS)
-        }
+        seleccionarRango(RangoTiempoSensor.SIETE_DIAS)
+        cargarEventosDeTendencia()
     }
 
     fun seleccionarRango(rango: RangoTiempoSensor) {
         _uiState.update { it.copy(rangoSeleccionado = rango, isLoading = true, error = null) }
         viewModelScope.launch {
-            procesarDatosHistorial(rango.dias)
+            obtenerHistorialSensor(rango)
         }
     }
 
-    private fun obtenerHistorialFirebase(onComplete: () -> Unit) {
-        val database = Firebase.database("https://aurorasos-default-rtdb.firebaseio.com/")
-        val historialRef = database.getReference("historial")
+    private fun cargarEventosDeTendencia() {
+        eventosRef.orderByKey().limitToLast(50)
+            .addListenerForSingleValueEvent(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    val eventos = snapshot.children.mapNotNull { it.getValue(TendenciaEvento::class.java) }
+                    _uiState.update { it.copy(eventosTendencia = eventos.reversed()) }
+                }
+
+                override fun onCancelled(error: DatabaseError) {
+                     _uiState.update { it.copy(error = "No se pudieron cargar los eventos de tendencia.") }
+                }
+            })
+    }
+
+    private fun obtenerHistorialSensor(rango: RangoTiempoSensor) {
+        val diasAtras = rango.dias
+        val fechaInicio = LocalDate.now().minusDays(diasAtras)
         val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
 
-        historialRef.addListenerForSingleValueEvent(object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                try {
-                    val dataMapa = mutableMapOf<LocalDate, SensorHistorial>()
-                    snapshot.children.forEach { fechaSnapshot ->
-                        val fechaKeyStr = fechaSnapshot.key ?: return@forEach
-                        try {
-                            val fecha = LocalDate.parse(fechaKeyStr, formatter)
-                            val historial = fechaSnapshot.getValue(SensorHistorial::class.java)
-                            if (historial != null) {
-                                dataMapa[fecha] = historial
-                            }
-                        } catch (e: Exception) {
-                            Log.w("SensorHistorialViewModel", "Error al parsear datos para $fechaKeyStr", e)
-                        }
+        historialRef.orderByKey().startAt(fechaInicio.format(formatter))
+            .addListenerForSingleValueEvent(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    val historial = snapshot.children.mapNotNull { data ->
+                        val fecha = data.key ?: return@mapNotNull null
+                        val entry = data.getValue(SensorHistorial::class.java) ?: return@mapNotNull null
+                        // ¡CORREGIDO! Se incluye la fecha en la creación del objeto
+                        HistorialEntry(fecha, entry.tmin, entry.tmax, entry.precip.toDouble(), entry.rocioMin)
                     }
-                    datosHistorialCache = dataMapa.toSortedMap()
-                } catch (e: Exception) {
-                    _uiState.update { it.copy(error = "Error al leer el historial.") }
-                } finally {
-                    onComplete()
+                    val etiquetas = historial.map { it.fecha.substring(5) } // Ahora 'it.fecha' existe
+
+                    _uiState.update { it.copy(
+                        isLoading = false,
+                        datosGrafico = DatosGrafico.Historial(historial, etiquetas)
+                    ) }
                 }
-            }
 
-            override fun onCancelled(error: DatabaseError) {
-                _uiState.update { it.copy(isLoading = false, error = "No se pudo acceder a la base de datos.") }
-                onComplete()
-            }
-        })
-    }
-
-    private fun procesarDatosHistorial(dias: Long) {
-        val cache = datosHistorialCache
-        if (cache == null) {
-            _uiState.update { it.copy(isLoading = false, error = "El historial aún no está disponible.") }
-            return
-        }
-
-        val hoy = LocalDate.now()
-        val fechaLimite = hoy.minusDays(dias)
-
-        val datosFiltrados = cache
-            .filterKeys { it.isAfter(fechaLimite) && !it.isAfter(hoy) }
-            .toSortedMap()
-
-        // --- CORRECCIÓN AQUÍ ---
-        val datosParaGrafico = datosFiltrados.values.toList().map { 
-            HistorialEntry(it.tmin, it.tmax, it.precip.toDouble(), it.rocioMin)
-        }
-        val etiquetas = datosFiltrados.keys.map { it.format(DateTimeFormatter.ofPattern("dd/MM")) }
-
-        _uiState.update {
-            it.copy(isLoading = false, datosGrafico = DatosGrafico.Historial(datosParaGrafico, etiquetas))
-        }
+                override fun onCancelled(error: DatabaseError) {
+                    _uiState.update { it.copy(isLoading = false, error = "No se pudo cargar el historial.") }
+                }
+            })
     }
 }
