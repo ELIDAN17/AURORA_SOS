@@ -39,22 +39,23 @@ fun HistorialScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
-    val fondoClaro = Color(0xFF87CEEB)
-    val colorTarjeta = Color.White
-    val colorLetraAzul = Color(0xFF0D47A1)
+    val colorLineaTemp = Color(0xFFFF9800) // Naranja para temperatura
+    val colorBarraHumedad = Color(0xFF90CAF9) // Azul para humedad
+    val etiquetaTextColor = MaterialTheme.colorScheme.onSurface
+    val lineaGuiaColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Pronóstico del Tiempo", color = Color.Black) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = fondoClaro)
+                title = { Text("Pronóstico del Tiempo", color = MaterialTheme.colorScheme.onBackground) },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
         }
     ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(fondoClaro)
+                .background(MaterialTheme.colorScheme.background)
                 .padding(paddingValues)
                 .padding(horizontal = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
@@ -67,7 +68,7 @@ fun HistorialScreen(
                     .fillMaxWidth()
                     .weight(1f),
                 shape = RoundedCornerShape(8.dp),
-                colors = CardDefaults.cardColors(containerColor = colorTarjeta),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
             ) {
                 Column(
@@ -82,13 +83,17 @@ fun HistorialScreen(
                         text = tituloGrafico,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color.Black,
+                        color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.padding(top = 16.dp)
                     )
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    GraficoLeyendaPronostico()
+                    GraficoLeyendaPronostico(
+                        tempColor = colorLineaTemp,
+                        humidityColor = colorBarraHumedad,
+                        textColor = etiquetaTextColor
+                    )
 
                     Box(
                         modifier = Modifier
@@ -103,7 +108,7 @@ fun HistorialScreen(
                             uiState.error != null -> {
                                 Text(
                                     text = uiState.error ?: "Error desconocido",
-                                    color = Color.Red,
+                                    color = MaterialTheme.colorScheme.error,
                                     textAlign = TextAlign.Center,
                                     modifier = Modifier.padding(16.dp)
                                 )
@@ -115,7 +120,11 @@ fun HistorialScreen(
                                             GraficoLineasPronostico(
                                                 modifier = Modifier.fillMaxSize(),
                                                 datosPronostico = datos.datos,
-                                                rangoSeleccionado = uiState.rangoSeleccionado.texto
+                                                rangoSeleccionado = uiState.rangoSeleccionado.texto,
+                                                lineaTempColor = colorLineaTemp,
+                                                barraHumedadColor = colorBarraHumedad,
+                                                etiquetaTextColor = etiquetaTextColor,
+                                                lineaGuiaColor = lineaGuiaColor
                                             )
                                         } else {
                                             Text("No hay datos de pronóstico para mostrar.")
@@ -137,16 +146,16 @@ fun HistorialScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                RangoTiempo.values().forEach { rango ->
+                RangoTiempo.entries.forEach { rango ->
                     OutlinedButton(
                         onClick = { viewModel.seleccionarRango(rango) },
                         colors = if (rango == uiState.rangoSeleccionado) {
                             ButtonDefaults.outlinedButtonColors(
-                                containerColor = Color.Blue.copy(alpha = 0.1f),
-                                contentColor = Color.Blue
+                                containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                                contentColor = MaterialTheme.colorScheme.primary
                             )
                         } else {
-                            ButtonDefaults.outlinedButtonColors(containerColor = Color.White)
+                            ButtonDefaults.outlinedButtonColors(containerColor = MaterialTheme.colorScheme.surface)
                         }
                     ) {
                         Text(rango.texto)
@@ -163,8 +172,8 @@ fun HistorialScreen(
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                 val buttonColors = ButtonDefaults.elevatedButtonColors(
-                    containerColor = Color.White,
-                    contentColor = colorLetraAzul
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.primary
                 )
                 ElevatedButton(
                     onClick = { navController.popBackStack() },
@@ -184,7 +193,11 @@ fun HistorialScreen(
 }
 
 @Composable
-fun GraficoLeyendaPronostico() {
+fun GraficoLeyendaPronostico(
+    tempColor: Color,
+    humidityColor: Color,
+    textColor: Color
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -192,11 +205,11 @@ fun GraficoLeyendaPronostico() {
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(modifier = Modifier.size(10.dp).background(Color(0xFFFF9800), RoundedCornerShape(2.dp)))
-        Text(" Temp", fontSize = 12.sp, modifier = Modifier.padding(start = 4.dp, end = 8.dp))
+        Box(modifier = Modifier.size(10.dp).background(tempColor, RoundedCornerShape(2.dp)))
+        Text(" Temp", fontSize = 12.sp, modifier = Modifier.padding(start = 4.dp, end = 8.dp), color = textColor)
 
-        Box(modifier = Modifier.size(10.dp).background(Color(0xFF90CAF9), RoundedCornerShape(2.dp)))
-        Text(" Humedad (%)", fontSize = 12.sp, modifier = Modifier.padding(start = 4.dp))
+        Box(modifier = Modifier.size(10.dp).background(humidityColor, RoundedCornerShape(2.dp)))
+        Text(" Humedad (%)", fontSize = 12.sp, modifier = Modifier.padding(start = 4.dp), color = textColor)
     }
 }
 
@@ -204,7 +217,11 @@ fun GraficoLeyendaPronostico() {
 fun GraficoLineasPronostico(
     modifier: Modifier = Modifier,
     datosPronostico: List<PronosticoEntry>,
-    rangoSeleccionado: String
+    rangoSeleccionado: String,
+    lineaTempColor: Color,
+    barraHumedadColor: Color,
+    etiquetaTextColor: Color,
+    lineaGuiaColor: Color
 ) {
     if (datosPronostico.isEmpty()) return
 
@@ -214,23 +231,19 @@ fun GraficoLineasPronostico(
     val paddedMaxTemp = (maxTemp + 2).roundToInt().toDouble()
     val rangoTemp = (paddedMaxTemp - paddedMinTemp).coerceAtLeast(1.0)
 
-    val colorLineaTemp = Color(0xFFFF9800)
-    val colorBarraHumedad = Color(0xFF90CAF9)
-
     val textMeasurer = rememberTextMeasurer()
-    val paddingEjeY_Izquierda = 48.dp
-    val paddingEjeY_Derecha = 48.dp
-    val paddingEjeX_Abajo = 40.dp
+    val paddingEjeYIzquierda = 48.dp
+    val paddingEjeYDerecha = 48.dp
+    val paddingEjeXAbajo = 40.dp
 
     Canvas(modifier = modifier) {
         val anchoTotal = size.width
         val altoTotal = size.height
-        val anchoCanvas = anchoTotal - paddingEjeY_Izquierda.toPx() - paddingEjeY_Derecha.toPx()
-        val altoCanvas = altoTotal - paddingEjeX_Abajo.toPx()
+        val anchoCanvas = anchoTotal - paddingEjeYIzquierda.toPx() - paddingEjeYDerecha.toPx()
+        val altoCanvas = altoTotal - paddingEjeXAbajo.toPx()
         val anchoPaso = if (datosPronostico.size > 1) anchoCanvas / (datosPronostico.size - 1) else anchoCanvas
 
-        // EJE Y (IZQUIERDA) - TEMPERATURA
-        val estiloEtiquetaTemp = TextStyle(fontSize = 10.sp, color = Color.Gray, textAlign = TextAlign.End)
+        val estiloEtiquetaTemp = TextStyle(fontSize = 10.sp, color = etiquetaTextColor, textAlign = TextAlign.End)
         val numeroDeEtiquetasY = 5
         val pasoEtiquetaTemp = rangoTemp / numeroDeEtiquetasY
 
@@ -240,32 +253,30 @@ fun GraficoLineasPronostico(
             val measuredText = textMeasurer.measure("${temp.roundToInt()}°", style = estiloEtiquetaTemp)
             drawText(
                 measuredText,
-                topLeft = Offset(paddingEjeY_Izquierda.toPx() - measuredText.size.width - 4.dp.toPx(), y - measuredText.size.height / 2f)
+                topLeft = Offset(paddingEjeYIzquierda.toPx() - measuredText.size.width - 4.dp.toPx(), y - measuredText.size.height / 2f)
             )
             drawLine(
-                color = Color.LightGray.copy(alpha = 0.3f),
-                start = Offset(paddingEjeY_Izquierda.toPx(), y),
-                end = Offset(anchoTotal - paddingEjeY_Derecha.toPx(), y),
+                color = lineaGuiaColor,
+                start = Offset(paddingEjeYIzquierda.toPx(), y),
+                end = Offset(anchoTotal - paddingEjeYDerecha.toPx(), y),
                 strokeWidth = 1f,
                 pathEffect = PathEffect.dashPathEffect(floatArrayOf(5f, 5f))
             )
         }
 
-        // EJE Y (DERECHA) - HUMEDAD
-        val estiloEtiquetaHumedad = TextStyle(fontSize = 10.sp, color = colorBarraHumedad.copy(alpha = 0.8f), textAlign = TextAlign.Start)
+        val estiloEtiquetaHumedad = TextStyle(fontSize = 10.sp, color = barraHumedadColor.copy(alpha = 0.8f), textAlign = TextAlign.Start)
         (0..4).forEach { i ->
             val porciento = i * 25
             val y = altoCanvas - ((porciento / 100f) * altoCanvas)
             val measuredText = textMeasurer.measure("$porciento%", style = estiloEtiquetaHumedad)
             drawText(
                 measuredText,
-                topLeft = Offset(anchoTotal - paddingEjeY_Derecha.toPx() + 4.dp.toPx(), y - measuredText.size.height / 2f)
+                topLeft = Offset(anchoTotal - paddingEjeYDerecha.toPx() + 4.dp.toPx(), y - measuredText.size.height / 2f)
             )
         }
 
-        translate(left = paddingEjeY_Izquierda.toPx()) {
-            // EJE X (ABAJO)
-            val estiloEtiquetaX = TextStyle(fontSize = 10.sp, color = Color.Black, textAlign = TextAlign.Center)
+        translate(left = paddingEjeYIzquierda.toPx()) {
+            val estiloEtiquetaX = TextStyle(fontSize = 10.sp, color = etiquetaTextColor, textAlign = TextAlign.Center)
             val formatterHora = DateTimeFormatter.ofPattern("HH:mm")
             val formatterFecha = DateTimeFormatter.ofPattern("dd/MM")
             val saltoEtiqueta = if (rangoSeleccionado == RangoTiempo.SIETE_DIAS.texto) 8 else 2
@@ -282,7 +293,6 @@ fun GraficoLineasPronostico(
                 }
             }
 
-            // DIBUJAR LÍNEAS Y BARRAS
             val pathLineaTemp = Path()
             val anchoBarra = (anchoPaso * 0.6f).coerceAtMost(20f)
 
@@ -292,13 +302,13 @@ fun GraficoLineasPronostico(
                 val altoBarraHum = ((entry.humedad / 100.0) * altoCanvas).toFloat()
 
                 drawRect(
-                    color = colorBarraHumedad.copy(alpha = 0.5f),
+                    color = barraHumedadColor.copy(alpha = 0.5f),
                     topLeft = Offset(x - anchoBarra / 2, altoCanvas - altoBarraHum),
                     size = Size(anchoBarra, altoBarraHum)
                 )
                 if (index == 0) pathLineaTemp.moveTo(x, yTemp) else pathLineaTemp.lineTo(x, yTemp)
             }
-            drawPath(path = pathLineaTemp, color = colorLineaTemp, style = Stroke(width = 5f))
+            drawPath(path = pathLineaTemp, color = lineaTempColor, style = Stroke(width = 5f))
         }
     }
 }

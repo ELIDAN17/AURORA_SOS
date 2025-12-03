@@ -38,22 +38,23 @@ fun SensorHistorialScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
-    val fondoClaro = Color(0xFF87CEEB)
-    val colorTarjeta = Color.White
-    val colorLetraAzul = Color(0xFF0D47A1)
+    val colorLineaTMax = Color(0xFFFF9800)
+    val colorLineaTMin = Color.Blue
+    val colorBarraPrecip = Color(0xFF90CAF9)
+    val etiquetaTextColor = MaterialTheme.colorScheme.onSurface
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Historial del Sensor", color = Color.Black) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = fondoClaro)
+                title = { Text("Historial del Sensor", color = MaterialTheme.colorScheme.onBackground) },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
         }
     ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(fondoClaro)
+                .background(MaterialTheme.colorScheme.background)
                 .padding(paddingValues)
                 .padding(horizontal = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
@@ -66,7 +67,7 @@ fun SensorHistorialScreen(
                     .fillMaxWidth()
                     .weight(1f),
                 shape = RoundedCornerShape(8.dp),
-                colors = CardDefaults.cardColors(containerColor = colorTarjeta),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
             ) {
                 Column(
@@ -77,13 +78,13 @@ fun SensorHistorialScreen(
                         text = "Historial de ${uiState.rangoSeleccionado.texto}",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color.Black,
+                        color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.padding(top = 16.dp)
                     )
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    GraficoLeyendaHistorial()
+                    GraficoLeyendaHistorial(tmaxColor = colorLineaTMax, tminColor = colorLineaTMin, precipColor = colorBarraPrecip, textColor = etiquetaTextColor)
 
                     Box(
                         modifier = Modifier
@@ -98,7 +99,7 @@ fun SensorHistorialScreen(
                             uiState.error != null -> {
                                 Text(
                                     text = uiState.error ?: "Error desconocido",
-                                    color = Color.Red,
+                                    color = MaterialTheme.colorScheme.error,
                                     textAlign = TextAlign.Center,
                                     modifier = Modifier.padding(16.dp)
                                 )
@@ -110,7 +111,11 @@ fun SensorHistorialScreen(
                                             GraficoLineasHistorial(
                                                 modifier = Modifier.fillMaxSize(),
                                                 datosHistorial = datos.datos,
-                                                etiquetasX = datos.etiquetas
+                                                etiquetasX = datos.etiquetas,
+                                                lineaTMaxColor = colorLineaTMax,
+                                                lineaTMinColor = colorLineaTMin,
+                                                barraPrecipColor = colorBarraPrecip,
+                                                etiquetaTextColor = etiquetaTextColor
                                             )
                                         } else {
                                             Text("No hay datos de historial para mostrar.")
@@ -132,16 +137,16 @@ fun SensorHistorialScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                RangoTiempoSensor.values().forEach { rango ->
+                RangoTiempoSensor.entries.forEach { rango ->
                     OutlinedButton(
                         onClick = { viewModel.seleccionarRango(rango) },
                         colors = if (rango == uiState.rangoSeleccionado) {
                             ButtonDefaults.outlinedButtonColors(
-                                containerColor = Color.Blue.copy(alpha = 0.1f),
-                                contentColor = Color.Blue
+                                containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                                contentColor = MaterialTheme.colorScheme.primary
                             )
                         } else {
-                            ButtonDefaults.outlinedButtonColors(containerColor = Color.White)
+                            ButtonDefaults.outlinedButtonColors()
                         }
                     ) {
                         Text(rango.texto)
@@ -157,13 +162,8 @@ fun SensorHistorialScreen(
                     .padding(bottom = 16.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                val buttonColors = ButtonDefaults.elevatedButtonColors(
-                    containerColor = Color.White,
-                    contentColor = colorLetraAzul
-                )
                 ElevatedButton(
-                    onClick = { navController.popBackStack() },
-                    colors = buttonColors
+                    onClick = { navController.popBackStack() }
                 ) {
                     Text("Principal")
                 }
@@ -173,7 +173,7 @@ fun SensorHistorialScreen(
 }
 
 @Composable
-fun GraficoLeyendaHistorial() {
+fun GraficoLeyendaHistorial(tmaxColor: Color, tminColor: Color, precipColor: Color, textColor: Color) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -181,14 +181,14 @@ fun GraficoLeyendaHistorial() {
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(modifier = Modifier.size(10.dp).background(Color(0xFFFF9800), RoundedCornerShape(2.dp)))
-        Text(" TMax", fontSize = 12.sp, modifier = Modifier.padding(start = 4.dp, end = 8.dp))
+        Box(modifier = Modifier.size(10.dp).background(tmaxColor, RoundedCornerShape(2.dp)))
+        Text(" TMax", fontSize = 12.sp, modifier = Modifier.padding(start = 4.dp, end = 8.dp), color = textColor)
 
-        Box(modifier = Modifier.size(10.dp).background(Color.Blue, RoundedCornerShape(2.dp)))
-        Text(" TMin", fontSize = 12.sp, modifier = Modifier.padding(start = 4.dp, end = 8.dp))
+        Box(modifier = Modifier.size(10.dp).background(tminColor, RoundedCornerShape(2.dp)))
+        Text(" TMin", fontSize = 12.sp, modifier = Modifier.padding(start = 4.dp, end = 8.dp), color = textColor)
 
-        Box(modifier = Modifier.size(10.dp).background(Color(0xFF90CAF9), RoundedCornerShape(2.dp)))
-        Text(" Precip. (mm)", fontSize = 12.sp, modifier = Modifier.padding(start = 4.dp))
+        Box(modifier = Modifier.size(10.dp).background(precipColor, RoundedCornerShape(2.dp)))
+        Text(" Precip. (mm)", fontSize = 12.sp, modifier = Modifier.padding(start = 4.dp), color = textColor)
     }
 }
 
@@ -196,7 +196,11 @@ fun GraficoLeyendaHistorial() {
 fun GraficoLineasHistorial(
     modifier: Modifier = Modifier,
     datosHistorial: List<HistorialEntry>,
-    etiquetasX: List<String>
+    etiquetasX: List<String>,
+    lineaTMaxColor: Color,
+    lineaTMinColor: Color,
+    barraPrecipColor: Color,
+    etiquetaTextColor: Color
 ) {
     if (datosHistorial.isEmpty()) return
 
@@ -206,24 +210,19 @@ fun GraficoLineasHistorial(
     val paddedMaxTemp = (maxTemp + 2).roundToInt().toDouble()
     val rangoTemp = (paddedMaxTemp - paddedMinTemp).coerceAtLeast(1.0)
 
-    val colorLineaTMax = Color(0xFFFF9800)
-    val colorLineaTMin = Color.Blue
-    val colorBarraPrecip = Color(0xFF90CAF9)
-
     val textMeasurer = rememberTextMeasurer()
-    val paddingEjeY_Izquierda = 48.dp
-    val paddingEjeY_Derecha = 48.dp
-    val paddingEjeX_Abajo = 40.dp
+    val paddingEjeYIzquierda = 48.dp
+    val paddingEjeYDerecha = 48.dp
+    val paddingEjeXAbajo = 40.dp
 
     Canvas(modifier = modifier) {
         val anchoTotal = size.width
         val altoTotal = size.height
-        val anchoCanvas = anchoTotal - paddingEjeY_Izquierda.toPx() - paddingEjeY_Derecha.toPx()
-        val altoCanvas = altoTotal - paddingEjeX_Abajo.toPx()
+        val anchoCanvas = anchoTotal - paddingEjeYIzquierda.toPx() - paddingEjeYDerecha.toPx()
+        val altoCanvas = altoTotal - paddingEjeXAbajo.toPx()
         val anchoPaso = if (datosHistorial.size > 1) anchoCanvas / (datosHistorial.size - 1) else anchoCanvas
 
-        // EJE Y (IZQUIERDA) - TEMPERATURA
-        val estiloEtiquetaTemp = TextStyle(fontSize = 10.sp, color = Color.Gray, textAlign = TextAlign.End)
+        val estiloEtiquetaTemp = TextStyle(fontSize = 10.sp, color = etiquetaTextColor, textAlign = TextAlign.End)
         val numeroDeEtiquetasY = 5
         val pasoEtiquetaTemp = rangoTemp / numeroDeEtiquetasY
 
@@ -233,12 +232,11 @@ fun GraficoLineasHistorial(
             val measuredText = textMeasurer.measure("${temp.roundToInt()}°", style = estiloEtiquetaTemp)
             drawText(
                 measuredText,
-                topLeft = Offset(paddingEjeY_Izquierda.toPx() - measuredText.size.width - 4.dp.toPx(), y - measuredText.size.height / 2f)
+                topLeft = Offset(paddingEjeYIzquierda.toPx() - measuredText.size.width - 4.dp.toPx(), y - measuredText.size.height / 2f)
             )
         }
 
-        // EJE Y (DERECHA) - PRECIPITACIÓN
-        val estiloEtiquetaPrecip = TextStyle(fontSize = 10.sp, color = colorBarraPrecip.copy(alpha = 0.8f), textAlign = TextAlign.Start)
+        val estiloEtiquetaPrecip = TextStyle(fontSize = 10.sp, color = barraPrecipColor.copy(alpha = 0.8f), textAlign = TextAlign.Start)
         val maxPrecip = datosHistorial.maxOfOrNull { it.precip }?.toFloat() ?: 0f
         if (maxPrecip > 0f) {
             (0..4).forEach { i ->
@@ -247,14 +245,13 @@ fun GraficoLineasHistorial(
                 val measuredText = textMeasurer.measure("${String.format("%.1f", precipValor)} mm", style = estiloEtiquetaPrecip)
                 drawText(
                     measuredText,
-                    topLeft = Offset(anchoTotal - paddingEjeY_Derecha.toPx() + 4.dp.toPx(), y - measuredText.size.height / 2f)
+                    topLeft = Offset(anchoTotal - paddingEjeYDerecha.toPx() + 4.dp.toPx(), y - measuredText.size.height / 2f)
                 )
             }
         }
 
-        translate(left = paddingEjeY_Izquierda.toPx()) {
-            // EJE X (ABAJO)
-            val estiloEtiquetaX = TextStyle(fontSize = 10.sp, color = Color.Black, textAlign = TextAlign.Center)
+        translate(left = paddingEjeYIzquierda.toPx()) {
+            val estiloEtiquetaX = TextStyle(fontSize = 10.sp, color = etiquetaTextColor, textAlign = TextAlign.Center)
             val saltoEtiqueta = if (etiquetasX.size > 10) 5 else 1
             etiquetasX.forEachIndexed { index, etiqueta ->
                 if (index % saltoEtiqueta == 0) {
@@ -267,7 +264,6 @@ fun GraficoLineasHistorial(
                 }
             }
 
-            // DIBUJAR LÍNEAS Y BARRAS
             val pathLineaTMax = Path()
             val pathLineaTMin = Path()
             val anchoBarra = (anchoPaso * 0.6f).coerceAtMost(20f)
@@ -281,7 +277,7 @@ fun GraficoLineasHistorial(
                     val maxPrecipValue = maxPrecip.coerceAtLeast(0.001f)
                     val altoBarraPrecip = ((entry.precip.toFloat() / maxPrecipValue) * altoCanvas)
                     drawRect(
-                        color = colorBarraPrecip.copy(alpha = 0.5f),
+                        color = barraPrecipColor.copy(alpha = 0.5f),
                         topLeft = Offset(x - anchoBarra / 2, altoCanvas - altoBarraPrecip),
                         size = Size(anchoBarra, altoBarraPrecip)
                     )
@@ -295,8 +291,8 @@ fun GraficoLineasHistorial(
                     pathLineaTMin.lineTo(x, yTMin)
                 }
             }
-            drawPath(path = pathLineaTMin, color = colorLineaTMin, style = Stroke(width = 4f))
-            drawPath(path = pathLineaTMax, color = colorLineaTMax, style = Stroke(width = 5f))
+            drawPath(path = pathLineaTMin, color = lineaTMinColor, style = Stroke(width = 4f))
+            drawPath(path = pathLineaTMax, color = lineaTMaxColor, style = Stroke(width = 5f))
         }
     }
 }

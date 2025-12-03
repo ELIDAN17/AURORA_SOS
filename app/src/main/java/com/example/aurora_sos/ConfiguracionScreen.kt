@@ -8,20 +8,15 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
@@ -44,7 +39,6 @@ fun ConfiguracionScreen(
 
     val uiState by viewModel.uiState.collectAsState()
 
-    // --- State and Logic for Permissions ---
     var hasNotificationPermission by remember {
         mutableStateOf(
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -68,7 +62,7 @@ fun ConfiguracionScreen(
         onResult = { permissions ->
             if (permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true || permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true) {
                 val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
-                if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
                     fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, CancellationTokenSource().token)
                         .addOnSuccessListener { location ->
                             if (location != null) {
@@ -85,7 +79,6 @@ fun ConfiguracionScreen(
         }
     )
 
-    // --- State for TextFields ---
     val configData by dataStoreManager.preferencesFlow.collectAsState(
         initial = UserPreferences(2.0, true, -15.84, -70.02, "Puno", "PE")
     )
@@ -102,7 +95,6 @@ fun ConfiguracionScreen(
 
     val notificacionesSwitchState = hasNotificationPermission && configData.notificacionesActivas
 
-    // --- Side Effects ---
     LaunchedEffect(uiState.error, uiState.guardadoConExito) {
         if (uiState.error != null) {
             snackbarHostState.showSnackbar(uiState.error!!, duration = SnackbarDuration.Long)
@@ -120,44 +112,35 @@ fun ConfiguracionScreen(
         uiState.paisEncontrado?.let { paisText = it }
     }
 
-    val textFieldColors = TextFieldDefaults.outlinedTextFieldColors(
-        focusedBorderColor = Color.Black,
-        unfocusedBorderColor = Color.Black.copy(alpha = 0.7f),
-        focusedLabelColor = Color.Black,
-        unfocusedLabelColor = Color.Black.copy(alpha = 0.8f),
-        cursorColor = Color.Black
-    )
-
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = { 
             TopAppBar(
-                title = { Text("Configuración", color = Color.Black) }, 
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF87CEEB))
+                title = { Text("Configuración", color = MaterialTheme.colorScheme.onBackground) }, 
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
         }
     ) { paddingValues ->
         Column(
-            modifier = Modifier.fillMaxSize().background(Color(0xFF87CEEB)).padding(paddingValues).padding(16.dp),
+            modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(paddingValues).padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(modifier = Modifier.height(32.dp))
-            Text("Umbral de Alerta", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.Black)
+            Text("Umbral de Alerta", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
             OutlinedTextField(
                 value = umbralText,
                 onValueChange = { umbralText = it.filter { char -> char.isDigit() || char == '.' || char == '-' } },
                 label = { Text("Temperatura crítica (°C)") },
                 modifier = Modifier.fillMaxWidth(),
-                colors = textFieldColors,
                 singleLine = true
             )
 
             Spacer(modifier = Modifier.height(24.dp))
-            Text("Ubicación", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.Black)
+            Text("Ubicación", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
             Text(
                 text = "Si tu ciudad no es encontrada, intenta con una localidad cercana más grande.",
                 style = MaterialTheme.typography.bodySmall,
-                color = Color.Black.copy(alpha = 0.7f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 8.dp)
             )
             
@@ -174,7 +157,6 @@ fun ConfiguracionScreen(
                 onValueChange = { ciudadText = it },
                 label = { Text("Ciudad") },
                 modifier = Modifier.fillMaxWidth(),
-                colors = textFieldColors,
                 singleLine = true
             )
             Spacer(modifier = Modifier.height(8.dp))
@@ -183,7 +165,6 @@ fun ConfiguracionScreen(
                 onValueChange = { paisText = it },
                 label = { Text("Código de País (ej: PE, US, ES)") },
                 modifier = Modifier.fillMaxWidth(),
-                colors = textFieldColors,
                 singleLine = true
             )
 
@@ -194,7 +175,7 @@ fun ConfiguracionScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("Activar Notificaciones", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = Color.Black)
+                Text("Activar Notificaciones", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
                 Switch(
                     checked = notificacionesSwitchState,
                     onCheckedChange = { isChecked ->
@@ -215,19 +196,13 @@ fun ConfiguracionScreen(
 
             Spacer(modifier = Modifier.weight(1f))
 
-            val buttonColors = ButtonDefaults.elevatedButtonColors(
-                containerColor = Color.White,
-                contentColor = Color(0xFF0D47A1)
-            )
-
             ElevatedButton(
                 onClick = { viewModel.guardarConfiguracion(umbralText, ciudadText, paisText, notificacionesSwitchState) },
-                colors = buttonColors,
                 modifier = Modifier.fillMaxWidth().height(50.dp),
                 enabled = !uiState.isLoading
             ) {
                 if (uiState.isLoading) {
-                    CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White)
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
                 } else {
                     Text("Guardar y Actualizar")
                 }
