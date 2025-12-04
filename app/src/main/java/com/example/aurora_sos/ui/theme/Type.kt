@@ -12,7 +12,6 @@ val baloo2 = FontFamily(
     Font(R.font.schoolbell)
 )
 
-// Set of Material typography styles to start with
 val Typography = Typography(
     displayLarge = TextStyle(
         fontFamily = baloo2,

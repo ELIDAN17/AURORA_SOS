@@ -12,10 +12,10 @@ private val DarkColorScheme = darkColorScheme(
     onPrimary = PetroleumGreen15,
     secondary = PetroleumGreen60,
     onSecondary = PetroleumGreen90,
-    background = Gray10, // Fondo casi negro
-    onBackground = Gray90, // Texto gris claro
-    surface = Gray5, // Superficie un poco más clara que el fondo
-    onSurface = Gray90 // Texto gris claro en superficies
+    background = Gray10,
+    onBackground = Gray90,
+    surface = Gray5,
+    onSurface = Gray90
 )
 
 private val LightColorScheme = lightColorScheme(
@@ -32,7 +32,6 @@ private val LightColorScheme = lightColorScheme(
 @Composable
 fun AURORA_SOSTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = false, // Se mantiene deshabilitado
     content: @Composable () -> Unit
 ) {
     val colorScheme = if (darkTheme) {

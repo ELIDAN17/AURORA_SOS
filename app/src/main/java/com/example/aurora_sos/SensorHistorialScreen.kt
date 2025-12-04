@@ -3,11 +3,9 @@ package com.example.aurora_sos
 import android.app.Application
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -50,23 +48,9 @@ fun SensorHistorialScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Historial del Sensor y Bitacora", color = MaterialTheme.colorScheme.onBackground) },
+                title = { Text("Historial del Sensor") },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
-        },
-        bottomBar = {
-             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 16.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                ElevatedButton(
-                    onClick = { navController.popBackStack() }
-                ) {
-                    Text("Principal")
-                }
-            }
         }
     ) { paddingValues ->
         Column(
@@ -81,8 +65,8 @@ fun SensorHistorialScreen(
                 HistorialVista.entries.forEach { vista ->
                     SegmentedButton(
                         colors = SegmentedButtonDefaults.colors(
-                            activeContainerColor = MaterialTheme.colorScheme.secondary,
-                            activeContentColor = MaterialTheme.colorScheme.onSecondary,
+                            activeContainerColor = MaterialTheme.colorScheme.primary,
+                            activeContentColor = MaterialTheme.colorScheme.onPrimary,
                             inactiveContainerColor = MaterialTheme.colorScheme.surface,
                             inactiveContentColor = MaterialTheme.colorScheme.onSurface
                         ),
@@ -96,24 +80,34 @@ fun SensorHistorialScreen(
             }
 
             Spacer(modifier = Modifier.height(16.dp))
-
-            AnimatedContent(targetState = vistaSeleccionada, label = "vista_historial") { vista ->
-                when (vista) {
-                    HistorialVista.GRAFICO -> VistaGrafico(uiState = uiState, viewModel = viewModel)
-                    HistorialVista.BITACORA -> VistaBitacora(uiState = uiState)
+            
+            // Contenido principal que ocupa el espacio sobrante
+            Box(modifier = Modifier.weight(1f)) {
+                AnimatedContent(targetState = vistaSeleccionada, label = "vista_historial") { vista ->
+                    when (vista) {
+                        HistorialVista.GRAFICO -> VistaGrafico(uiState = uiState, viewModel = viewModel)
+                        HistorialVista.BITACORA -> VistaBitacora(uiState = uiState)
+                    }
                 }
             }
+            
+            // Botón de navegación al final del contenido
+            Spacer(modifier = Modifier.height(16.dp))
+            ElevatedButton(onClick = { navController.popBackStack() }) {
+                Text("Volver a Principal")
+            }
+            Spacer(modifier = Modifier.height(16.dp)) 
         }
     }
 }
 
 @Composable
 private fun VistaGrafico(uiState: SensorHistorialUiState, viewModel: SensorHistorialViewModel) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxHeight()) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxSize()) {
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f),
+                .weight(1f), 
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             elevation = CardDefaults.cardElevation(4.dp)
         ) {
@@ -153,7 +147,7 @@ private fun VistaGrafico(uiState: SensorHistorialUiState, viewModel: SensorHisto
 
 @Composable
 private fun VistaBitacora(uiState: SensorHistorialUiState) {
-    if (uiState.isLoading && uiState.eventosTendencia.isEmpty()) {
+     if (uiState.isLoading && uiState.eventosTendencia.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
         return
     }
