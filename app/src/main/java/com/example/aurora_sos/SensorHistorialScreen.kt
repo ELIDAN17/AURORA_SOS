@@ -11,10 +11,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
@@ -80,8 +81,7 @@ fun SensorHistorialScreen(
             }
 
             Spacer(modifier = Modifier.height(16.dp))
-            
-            // Contenido principal que ocupa el espacio sobrante
+
             Box(modifier = Modifier.weight(1f)) {
                 AnimatedContent(targetState = vistaSeleccionada, label = "vista_historial") { vista ->
                     when (vista) {
@@ -91,7 +91,6 @@ fun SensorHistorialScreen(
                 }
             }
             
-            // Botón de navegación al final del contenido
             Spacer(modifier = Modifier.height(16.dp))
             ElevatedButton(onClick = { navController.popBackStack() }) {
                 Text("Volver a Principal")
@@ -216,13 +215,12 @@ fun GraficoLineasHistorial(
 
     val textMeasurer = rememberTextMeasurer()
     val paddingEjeYIzquierda = 48.dp
-    val paddingEjeYDerecha = 48.dp
-    val paddingEjeXAbajo = 40.dp
+    val paddingEjeXAbajo = 60.dp // Aumentado para dar espacio a texto vertical
 
     Canvas(modifier = modifier) {
         val anchoTotal = size.width
         val altoTotal = size.height
-        val anchoCanvas = anchoTotal - paddingEjeYIzquierda.toPx() - paddingEjeYDerecha.toPx()
+        val anchoCanvas = anchoTotal - paddingEjeYIzquierda.toPx() 
         val altoCanvas = altoTotal - paddingEjeXAbajo.toPx()
         val anchoPaso = if (datosHistorial.size > 1) anchoCanvas / (datosHistorial.size - 1) else anchoCanvas
 
@@ -240,52 +238,34 @@ fun GraficoLineasHistorial(
             )
         }
 
-        val estiloEtiquetaPrecip = TextStyle(fontSize = 10.sp, color = barraPrecipColor.copy(alpha = 0.8f), textAlign = TextAlign.Start)
-        val maxPrecip = datosHistorial.maxOfOrNull { it.precip.toFloat() } ?: 0f
-        if (maxPrecip > 0f) {
-            (0..4).forEach { i ->
-                val precipValor = (i / 4f) * maxPrecip
-                val y = altoCanvas - ((i.toFloat() / 4f) * altoCanvas)
-                val measuredText = textMeasurer.measure("${String.format("%.1f", precipValor)} mm", style = estiloEtiquetaPrecip)
-                drawText(
-                    measuredText,
-                    topLeft = Offset(anchoTotal - paddingEjeYDerecha.toPx() + 4.dp.toPx(), y - measuredText.size.height / 2f)
-                )
-            }
-        }
-
         translate(left = paddingEjeYIzquierda.toPx()) {
             val estiloEtiquetaX = TextStyle(fontSize = 10.sp, color = etiquetaTextColor, textAlign = TextAlign.Center)
-            val saltoEtiqueta = if (etiquetasX.size > 10) 5 else 1
+            val saltoEtiqueta = if (etiquetasX.size > 7) 2 else 1
+
             etiquetasX.forEachIndexed { index, etiqueta ->
                 if (index % saltoEtiqueta == 0) {
                     val x = index * anchoPaso
-                    val measuredText = textMeasurer.measure(etiqueta, style = estiloEtiquetaX)
-                    drawText(
-                        measuredText,
-                        topLeft = Offset(x - (measuredText.size.width / 2), altoCanvas + 4.dp.toPx())
-                    )
+                    drawIntoCanvas {
+                        it.nativeCanvas.save()
+                        it.nativeCanvas.rotate(-60f, x, altoCanvas + 20.dp.toPx())
+                        drawText(
+                            textMeasurer = textMeasurer,
+                            text = etiqueta,
+                            style = estiloEtiquetaX,
+                            topLeft = Offset(x - 15.dp.toPx(), altoCanvas + 5.dp.toPx())
+                        )
+                        it.nativeCanvas.restore()
+                    }
                 }
             }
 
             val pathLineaTMax = Path()
             val pathLineaTMin = Path()
-            val anchoBarra = (anchoPaso * 0.6f).coerceAtMost(20f)
 
             datosHistorial.forEachIndexed { index, entry ->
                 val x = index * anchoPaso
                 val yTMax = (altoCanvas - (((entry.tmax - paddedMinTemp) / rangoTemp) * altoCanvas)).toFloat()
                 val yTMin = (altoCanvas - (((entry.tmin - paddedMinTemp) / rangoTemp) * altoCanvas)).toFloat()
-
-                if (entry.precip > 0) {
-                    val maxPrecipValue = maxPrecip.coerceAtLeast(0.001f)
-                    val altoBarraPrecip = ((entry.precip.toFloat() / maxPrecipValue) * altoCanvas)
-                    drawRect(
-                        color = barraPrecipColor.copy(alpha = 0.5f),
-                        topLeft = Offset(x - anchoBarra / 2, altoCanvas - altoBarraPrecip),
-                        size = Size(anchoBarra, altoBarraPrecip)
-                    )
-                }
 
                 if (index == 0) {
                     pathLineaTMax.moveTo(x, yTMax)

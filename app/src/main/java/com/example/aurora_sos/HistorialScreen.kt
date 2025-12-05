@@ -17,6 +17,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
@@ -234,7 +236,7 @@ fun GraficoLineasPronostico(
     val textMeasurer = rememberTextMeasurer()
     val paddingEjeYIzquierda = 48.dp
     val paddingEjeYDerecha = 48.dp
-    val paddingEjeXAbajo = 40.dp
+    val paddingEjeXAbajo = 60.dp // Aumentado para dar espacio a texto vertical
 
     Canvas(modifier = modifier) {
         val anchoTotal = size.width
@@ -278,18 +280,25 @@ fun GraficoLineasPronostico(
         translate(left = paddingEjeYIzquierda.toPx()) {
             val estiloEtiquetaX = TextStyle(fontSize = 10.sp, color = etiquetaTextColor, textAlign = TextAlign.Center)
             val formatterHora = DateTimeFormatter.ofPattern("HH:mm")
-            val formatterFecha = DateTimeFormatter.ofPattern("dd/MM")
+            val formatterFecha = DateTimeFormatter.ofPattern("dd-MM")
             val saltoEtiqueta = if (rangoSeleccionado == RangoTiempo.SIETE_DIAS.texto) 8 else 2
 
             datosPronostico.forEachIndexed { index, entry ->
                 if (index % saltoEtiqueta == 0) {
                     val x = index * anchoPaso
                     val textoCompleto = "${entry.timestamp.format(formatterHora)}\n${entry.timestamp.toLocalDate().format(formatterFecha)}"
-                    val measuredText = textMeasurer.measure(textoCompleto, style = estiloEtiquetaX)
-                    drawText(
-                        measuredText,
-                        topLeft = Offset(x - (measuredText.size.width / 2), altoCanvas + 4.dp.toPx())
-                    )
+
+                    drawIntoCanvas {
+                        it.nativeCanvas.save()
+                        it.nativeCanvas.rotate(-60f, x, altoCanvas + 20.dp.toPx())
+                        drawText(
+                            textMeasurer = textMeasurer,
+                            text = textoCompleto,
+                            style = estiloEtiquetaX,
+                            topLeft = Offset(x - 15.dp.toPx(), altoCanvas + 5.dp.toPx())
+                        )
+                        it.nativeCanvas.restore()
+                    }
                 }
             }
 
