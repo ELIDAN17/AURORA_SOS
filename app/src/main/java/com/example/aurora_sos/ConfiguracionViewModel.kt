@@ -20,8 +20,8 @@ data class ConfiguracionUiState(
     val isLoading: Boolean = false,
     val error: String? = null,
     val guardadoConExito: Boolean = false,
-    val ciudadEncontrada: String? = null, // Nuevo
-    val paisEncontrado: String? = null     // Nuevo
+    val ciudadEncontrada: String? = null,
+    val paisEncontrado: String? = null
 )
 
 class ConfiguracionViewModel(application: Application) : AndroidViewModel(application) {
@@ -76,7 +76,6 @@ class ConfiguracionViewModel(application: Application) : AndroidViewModel(applic
         }
     }
 
-    // --- ¡NUEVA FUNCIÓN! ---
     fun buscarCiudadPorCoordenadas(lat: Double, lon: Double) {
         _uiState.update { it.copy(isLoading = true, error = null) }
         viewModelScope.launch {

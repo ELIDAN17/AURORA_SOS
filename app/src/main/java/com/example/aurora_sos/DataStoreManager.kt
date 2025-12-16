@@ -6,7 +6,6 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
-// Define una clase de datos para encapsular todas las preferencias
 data class UserPreferences(
     val umbralHelada: Double,
     val notificacionesActivas: Boolean,
@@ -16,14 +15,12 @@ data class UserPreferences(
     val codigoPais: String
 )
 
-// Extensión para acceder al DataStore
 val Context.dataStore by preferencesDataStore(name = "configuracion_aurora")
 
 class DataStoreManager(context: Context) {
 
     private val dataStore = context.dataStore
 
-    // Claves para cada una de las preferencias
     private object PreferencesKeys {
         val UMBRAL_HELADA = doublePreferencesKey("umbral_helada")
         val NOTIFICACIONES_ACTIVAS = booleanPreferencesKey("notificaciones_activas")
@@ -33,7 +30,6 @@ class DataStoreManager(context: Context) {
         val CODIGO_PAIS = stringPreferencesKey("codigo_pais")
     }
 
-    // Flow que emite el objeto UserPreferences completo
     val preferencesFlow: Flow<UserPreferences> = dataStore.data.map { preferences ->
         UserPreferences(
             umbralHelada = preferences[PreferencesKeys.UMBRAL_HELADA] ?: 2.0,
@@ -45,7 +41,6 @@ class DataStoreManager(context: Context) {
         )
     }
 
-    // Función para guardar todas las preferencias
     suspend fun saveConfiguracion(prefs: UserPreferences) {
         dataStore.edit { preferences ->
             preferences[PreferencesKeys.UMBRAL_HELADA] = prefs.umbralHelada

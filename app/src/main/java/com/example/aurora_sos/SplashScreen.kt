@@ -17,16 +17,11 @@ fun SplashScreen(navController: NavController) {
     // Definimos el color de fondo
     val fondoClaro = Color(0xFF87CEEB)
 
-    // 1. Lógica del Temporizador y Navegación
     LaunchedEffect(key1 = true) {
-        // Espera 4 segundos
         delay(4000L)
-        // Navega al Módulo Principal y evita que se pueda volver a Splash
         navController.popBackStack()
         navController.navigate(Screen.Principal.route)
     }
-
-    // 2. Diseño de la Interfaz de Usuario
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = fondoClaro
@@ -53,7 +48,6 @@ fun SplashScreen(navController: NavController) {
 @Preview(showBackground = true)
 @Composable
 fun SplashScreenPreview() {
-    // Agregamos el tema al Preview para que se vea bien
     com.example.aurora_sos.ui.theme.AURORA_SOSTheme {
         SplashScreen(navController = rememberNavController())
     }

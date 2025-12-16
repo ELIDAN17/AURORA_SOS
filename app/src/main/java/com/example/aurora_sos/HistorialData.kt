@@ -2,10 +2,10 @@ package com.example.aurora_sos
 
 import java.time.LocalDateTime
 
-// --- MODELOS DE DATOS COMUNES PARA GRÁFICOS ---
+// --- MODELOS DE DATOS PARA LOS GRÁFICOS ---
 
 data class HistorialEntry(
-    val fecha: String, // ¡AÑADIDO! La fecha es necesaria
+    val fecha: String,
     val tmin: Double,
     val tmax: Double,
     val precip: Double,
@@ -41,9 +41,6 @@ data class HistorialUiState(
 // --- MODELOS PARA PANTALLA DE HISTORIAL (SENSOR) ---
 
 enum class RangoTiempoSensor(val texto: String, val dias: Long) {
-    // Se elimina la opción de 24 horas
     SIETE_DIAS("7 Días", 7),
     TREINTA_DIAS("30 Días", 30)
 }
-
-// Se elimina SensorHistorialUiState ya que no se usa directamente aquí

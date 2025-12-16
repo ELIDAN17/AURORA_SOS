@@ -226,7 +226,7 @@ fun SeccionClima(
     datosClimaticos: @Composable RowScope.() -> Unit,
     pronosticoPorHoras: @Composable () -> Unit,
     pronosticoHelada: @Composable () -> Unit,
-    tendenciaMessage: String? = null // ¡MODIFICADO! Parámetro para el mensaje de tendencia
+    tendenciaMessage: String? = null
 ) {
     val cardContentColor = Color.Black
 
@@ -266,12 +266,11 @@ fun SeccionClima(
                 Text(text = "$temp°C", fontSize = 60.sp, color = cardContentColor)
             }
 
-            // ¡NUEVO! Muestra el mensaje de tendencia si está disponible
             tendenciaMessage?.let {
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = it,
-                    color = Color.Black, // Color de texto negro como solicitaste
+                    color = Color.Black,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center,

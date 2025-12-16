@@ -65,10 +65,9 @@ class NotificationService(private val context: Context) {
             .setAutoCancel(true)
             .build()
 
-        notificationManager.notify(1, notification) // ID 1 para la alerta crítica
+        notificationManager.notify(1, notification)
     }
 
-    // --- FUNCIÓN CORREGIDA PARA ALERTAS PREDICTIVAS ---
     fun showPredictiveNotification(pronostico: PronosticoHeladaApi) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
@@ -84,10 +83,10 @@ class NotificationService(private val context: Context) {
             .setContentTitle("⚠️ Alerta Preventiva de Helada ⚠️")
             .setContentText(texto)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT) // Prioridad normal para que no sea tan intrusiva
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true)
             .build()
 
-        notificationManager.notify(2, notification) // ID 2 para la alerta predictiva
+        notificationManager.notify(2, notification)
     }
 }

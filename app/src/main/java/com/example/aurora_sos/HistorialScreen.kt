@@ -236,7 +236,7 @@ fun GraficoLineasPronostico(
     val textMeasurer = rememberTextMeasurer()
     val paddingEjeYIzquierda = 48.dp
     val paddingEjeYDerecha = 48.dp
-    val paddingEjeXAbajo = 60.dp // Aumentado para dar espacio a texto vertical
+    val paddingEjeXAbajo = 60.dp
 
     Canvas(modifier = modifier) {
         val anchoTotal = size.width

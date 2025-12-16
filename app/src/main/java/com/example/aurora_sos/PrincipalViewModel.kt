@@ -25,8 +25,6 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import kotlin.math.abs
 
-// --- Estado de la Interfaz --- //
-
 data class PrincipalUiState(
     // Datos de la API
     val temperaturaApi: Double = 30.0,
@@ -73,7 +71,6 @@ data class PronosticoHoraApi(
     val soilTemperature: Double
 )
 
-// ¡NUEVO! Data class para guardar eventos de tendencia
 data class TendenciaEvento(
     val mensaje: String = "",
     val timestamp: String = ""
@@ -101,7 +98,7 @@ class PrincipalViewModel(application: Application) : AndroidViewModel(applicatio
 
     private val database = Firebase.database("https://aurorasos-default-rtdb.firebaseio.com/")
     private val auroraRef = database.getReference("aurora")
-    private val eventosRef = database.getReference("eventos_tendencia") // ¡NUEVO! Referencia para eventos
+    private val eventosRef = database.getReference("eventos_tendencia")
 
     private val dataStoreManager = DataStoreManager(application)
 
