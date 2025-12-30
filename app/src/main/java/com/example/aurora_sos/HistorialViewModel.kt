@@ -31,7 +31,7 @@ class HistorialViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     init {
-        seleccionarRango(RangoTiempo.SIETE_DIAS) // Carga inicial por defecto
+        seleccionarRango(RangoTiempo.SIETE_DIAS)
     }
 
     fun seleccionarRango(rango: RangoTiempo) {

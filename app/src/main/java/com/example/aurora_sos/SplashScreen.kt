@@ -10,12 +10,12 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import com.example.aurora_sos.ui.theme.* // ¡NUEVO! Importa los colores
 import kotlinx.coroutines.delay
 
 @Composable
 fun SplashScreen(navController: NavController) {
-    // Definimos el color de fondo
-    val fondoClaro = Color(0xFF87CEEB)
+    val fondoClaro = SkyBlue
 
     LaunchedEffect(key1 = true) {
         delay(4000L)

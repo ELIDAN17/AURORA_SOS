@@ -26,7 +26,6 @@ import java.time.format.DateTimeFormatter
 import kotlin.math.abs
 
 data class PrincipalUiState(
-    // Datos de la API
     val temperaturaApi: Double = 30.0,
     val pronosticoHeladaApi: PronosticoHeladaApi? = null,
     val alertaApi: Alerta = Alerta.Estable,
@@ -35,13 +34,11 @@ data class PrincipalUiState(
     val pronosticoPorHorasApi: List<PronosticoHoraApi> = emptyList(),
     val alertaPredictivaApi: PronosticoHeladaApi? = null,
 
-    // Datos del Sensor
     val temperaturaSensor: Double = 30.0,
     val alertaSensor: Alerta = Alerta.Estable,
     val datosClimaticosSensor: DatosClimaticosSensor = DatosClimaticosSensor(0.0, 0, 0.0),
     val indicadorRiesgo: IndicadorRiesgo = IndicadorRiesgo.Estable(),
 
-    // Estado General
     val error: String? = null,
     val isLoading: Boolean = true
 )
@@ -77,9 +74,9 @@ data class TendenciaEvento(
 )
 
 sealed class Alerta {
-    data object Estable : Alerta() // Verde
-    data object Moderado : Alerta() // Amarillo
-    data object Helada : Alerta()   // Rojo
+    data object Estable : Alerta()
+    data object Moderado : Alerta()
+    data object Helada : Alerta()
 }
 
 sealed class IndicadorRiesgo {
@@ -173,8 +170,7 @@ class PrincipalViewModel(application: Application) : AndroidViewModel(applicatio
                 } 
             }
         }
-        
-        // ¡NUEVO! Guardar en Firebase si el riesgo no es estable
+
         if (nuevoIndicador !is IndicadorRiesgo.Estable) {
             guardarEventoDeTendencia(nuevoIndicador.message)
         }
@@ -183,12 +179,10 @@ class PrincipalViewModel(application: Application) : AndroidViewModel(applicatio
         datosSensorAnteriores = datosNuevos
         tiempoLecturaAnterior = tiempoLecturaActual
     }
-    
-    // ¡NUEVO! Función para guardar el evento en Firebase
+
     private fun guardarEventoDeTendencia(mensaje: String) {
         val timestamp = LocalDateTime.now().format(DateTimeFormatter.ISO_DATE_TIME)
         val evento = TendenciaEvento(mensaje, timestamp)
-        // Usamos el timestamp como clave única para evitar sobreescribir y mantener un orden cronológico
         eventosRef.child(timestamp).setValue(evento)
     }
 

@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.example.aurora_sos.ui.theme.*
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
@@ -200,9 +201,9 @@ fun GraficoLineasHistorial(
     modifier: Modifier = Modifier,
     datosHistorial: List<HistorialEntry>,
     etiquetasX: List<String>,
-    lineaTMaxColor: Color = Color(0xFFFF9800),
+    lineaTMaxColor: Color = OrangeMain,
     lineaTMinColor: Color = Color.Blue,
-    barraPrecipColor: Color = Color(0xFF90CAF9),
+    barraPrecipColor: Color = BlueMain,
     etiquetaTextColor: Color = MaterialTheme.colorScheme.onSurface
 ) {
     if (datosHistorial.isEmpty()) return
@@ -215,7 +216,7 @@ fun GraficoLineasHistorial(
 
     val textMeasurer = rememberTextMeasurer()
     val paddingEjeYIzquierda = 48.dp
-    val paddingEjeXAbajo = 60.dp // Aumentado para dar espacio a texto vertical
+    val paddingEjeXAbajo = 60.dp 
 
     Canvas(modifier = modifier) {
         val anchoTotal = size.width

@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.example.aurora_sos.ui.theme.*
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
 
@@ -41,8 +42,8 @@ fun HistorialScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
-    val colorLineaTemp = Color(0xFFFF9800) // Naranja para temperatura
-    val colorBarraHumedad = Color(0xFF90CAF9) // Azul para humedad
+    val colorLineaTemp = OrangeMain
+    val colorBarraHumedad = BlueMain
     val etiquetaTextColor = MaterialTheme.colorScheme.onSurface
     val lineaGuiaColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
 

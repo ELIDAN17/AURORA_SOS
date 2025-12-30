@@ -31,6 +31,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.example.aurora_sos.ui.theme.*
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -161,7 +162,7 @@ fun PrincipalScreen(
                         },
                         pronosticoPorHoras = {},
                         pronosticoHelada = {},
-                        tendenciaMessage = uiState.indicadorRiesgo.message // ¡NUEVO! Mensaje de tendencia
+                        tendenciaMessage = uiState.indicadorRiesgo.message 
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -232,9 +233,9 @@ fun SeccionClima(
 
     val colorFondo by animateColorAsState(
         targetValue = when (alerta) {
-            is Alerta.Helada -> Color(0xFFE57373)
-            is Alerta.Moderado -> Color(0xFFFFB74D)
-            is Alerta.Estable -> Color(0xFF81C784)
+            is Alerta.Helada -> AlertRed
+            is Alerta.Moderado -> AlertOrange
+            is Alerta.Estable -> AlertGreen
         },
         animationSpec = tween(1000),
         label = "colorFondoSeccion"

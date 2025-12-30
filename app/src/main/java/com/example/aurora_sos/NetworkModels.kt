@@ -5,7 +5,6 @@ import com.google.firebase.database.PropertyName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonNames
 
-// --- MODELOS PARA LA API DE OPEN-METEO (CLIMA) ---
 
 @Serializable
 data class OpenMeteoResponse(
@@ -52,7 +51,7 @@ data class DailyData(
     val precipitationSum: List<Double> = emptyList()
 )
 
-// --- MODELOS PARA FIREBASE ---
+
 
 data class SensorData(
     val temperatura: Double = 0.0,

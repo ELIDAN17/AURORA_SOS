@@ -34,8 +34,8 @@ class DataStoreManager(context: Context) {
         UserPreferences(
             umbralHelada = preferences[PreferencesKeys.UMBRAL_HELADA] ?: 2.0,
             notificacionesActivas = preferences[PreferencesKeys.NOTIFICACIONES_ACTIVAS] ?: true,
-            latitud = preferences[PreferencesKeys.LATITUD] ?: -12.0464, // Lima Lat
-            longitud = preferences[PreferencesKeys.LONGITUD] ?: -77.0428, // Lima Lon
+            latitud = preferences[PreferencesKeys.LATITUD] ?: -12.0464,
+            longitud = preferences[PreferencesKeys.LONGITUD] ?: -77.0428,
             nombreCiudad = preferences[PreferencesKeys.NOMBRE_CIUDAD] ?: "Lima",
             codigoPais = preferences[PreferencesKeys.CODIGO_PAIS] ?: "PE"
         )
